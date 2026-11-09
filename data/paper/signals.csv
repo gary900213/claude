@@ -1,2 +1,3 @@
-signal_date,generated_at_utc,strategy,close,trend,vol_scale,ls_z90,oi_z90,filter_ls,filter_oi,target_pos
-2026-11-07 00:00:00+00:00,2026-11-09 08:29:12.388540+00:00,v1-2026-11-09,75836.0,-0.3333333333333333,1.1838611198313993,2.877640638281582,-0.7790698900906053,True,False,0.0
+signal_date,generated_at_utc,strategy,close,trend,vol_scale,ls_z90,oi_z90,filter_ls,filter_oi,target_pos,source
+2026-11-07 00:00:00+00:00,2026-11-09 08:29:12.388540+00:00,v1-2026-11-09,75836,-0.333333,1.18386,2.87764,-0.77907,True,False,0,
+2026-11-08 00:00:00+00:00,2026-11-09 22:22:50.650222+00:00,v1-2026-11-09,74823.5,-0.333333,1.16109,2.27292,-0.833119,True,False,0,archive
