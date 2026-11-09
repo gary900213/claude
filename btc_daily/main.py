@@ -203,6 +203,8 @@ def run(demo: bool = False, out: str | None = None) -> int:
         today_df = today_df.join(etf[["Total"]].rename(columns={"Total": "etf_net_musd"}), how="outer")
     summary_df = upsert_csv(DATA / "daily_summary.csv", today_df)
 
+    # 持倉量／資金費率／多空比只來自單一交易所，標示清楚
+    venue = "OKX " if "okx" in status.get("持倉量", "") else ("Binance " if "binance" in status.get("持倉量", "") else "")
     images, notes = [], []
     if etf is not None and len(etf):
         charts.etf_flows_chart(etf, str(IMG / "etf_flows.png"))
@@ -213,7 +215,8 @@ def run(demo: bool = False, out: str | None = None) -> int:
         notes += hm.notes
         charts.heatmap_chart(hm, k, str(IMG / "liq_heatmap.png"))
         charts.liquidation_map_chart(hm, str(IMG / "liq_map.png"))
-        charts.derivatives_chart(k.tail(24 * 14), oi, funding, ls, str(IMG / "derivatives.png"))
+        charts.derivatives_chart(k.tail(24 * 14), oi, funding, ls, str(IMG / "derivatives.png"),
+                                 venue=venue)
         images += [("liq_heatmap.png", "預估清算熱力圖（近 14 天）"),
                    ("liq_map.png", "預估清算地圖（現價 ±12%）"),
                    ("derivatives.png", "價格、持倉量、資金費率、多空比（近 14 天）")]
@@ -234,7 +237,7 @@ def run(demo: bool = False, out: str | None = None) -> int:
     if oi is not None:
         d = oi.iloc[-1] / oi[oi.index <= oi.index[-1] - pd.Timedelta("24h")].iloc[-1] - 1 \
             if (oi.index <= oi.index[-1] - pd.Timedelta("24h")).any() else float("nan")
-        tiles.append(("期貨持倉量", f"${oi.iloc[-1] / 1e9:,.2f}B", f"24h {d:+.2%}"))
+        tiles.append((f"{venue}期貨持倉量", f"${oi.iloc[-1] / 1e9:,.2f}B", f"24h {d:+.2%}"))
     if funding is not None:
         tiles.append(("資金費率（最新一期）", f"{funding.iloc[-1] * 100:.4f}%", ""))
     if hm is not None:

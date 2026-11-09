@@ -123,14 +123,14 @@ def liquidation_map_chart(hm: HeatmapResult, path: str, window_pct: float = 0.12
 
 
 def derivatives_chart(klines: pd.DataFrame, oi: pd.Series | None, funding: pd.Series | None,
-                      ls: pd.Series | None, path: str) -> None:
+                      ls: pd.Series | None, path: str, venue: str = "") -> None:
     panels = [("BTC 價格（USDT）", klines["close"], lambda v: f"{v:,.0f}")]
     if oi is not None and len(oi):
-        panels.append(("期貨持倉量（十億美元）", oi / 1e9, lambda v: f"{v:.1f}"))
+        panels.append((f"{venue}BTC 期貨持倉量（十億美元）", oi / 1e9, lambda v: f"{v:.1f}"))
     if funding is not None and len(funding):
-        panels.append(("資金費率（%／每期）", funding * 100, lambda v: f"{v:.3f}"))
+        panels.append((f"{venue}資金費率（%／每期）", funding * 100, lambda v: f"{v:.3f}"))
     if ls is not None and len(ls):
-        panels.append(("多空帳戶比", ls, lambda v: f"{v:.2f}"))
+        panels.append((f"{venue}多空帳戶比", ls, lambda v: f"{v:.2f}"))
     start = klines.index[0]
     fig, axes = plt.subplots(len(panels), 1, figsize=(11, 2.2 * len(panels)), sharex=True)
     axes = np.atleast_1d(axes)

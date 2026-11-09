@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BTC 每日資金與清算</title>
+<style>
+:root { --bg:#fcfcfb; --fg:#0b0b0b; --fg2:#52514e; --line:#e4e3df; --card:#ffffff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#1a1a19; --fg:#f0efec; --fg2:#c3c2b7; --line:#383835; --card:#232322; } }
+:root[data-theme="dark"] { --bg:#1a1a19; --fg:#f0efec; --fg2:#c3c2b7; --line:#383835; --card:#232322; }
+body { margin:0; background:var(--bg); color:var(--fg);
+  font:15px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; }
+main { max-width:1100px; margin:0 auto; padding:24px 16px 64px; }
+h1 { font-size:1.6rem; margin:0 0 4px; } .muted { color:var(--fg2); font-size:.9rem; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:20px 0; }
+.tile { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+.lbl { color:var(--fg2); font-size:.85rem; } .val { font-size:1.35rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.sub { color:var(--fg2); font-size:.8rem; }
+figure { margin:24px 0; } img { width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#fcfcfb; }
+figcaption { color:var(--fg2); font-size:.85rem; margin-top:4px; }
+.scroll { overflow-x:auto; } table.data { border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:.85rem; }
+table.data th, table.data td { padding:4px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+</style></head><body><main>
+<h1>BTC 每日資金流與清算</h1>
+<div class="muted">更新時間：2026-11-09 06:40 UTC　·　全部使用免費公開資料</div>
+<div class="tiles"><div class="tile"><div class="lbl">BTC 價格</div><div class="val">74,208</div><div class="sub">24h -2.10%</div></div><div class="tile"><div class="lbl">ETF 淨流入（最近交易日）</div><div class="val">-411.9M</div><div class="sub">2026-11-06　5 日合計 -1,282M</div></div><div class="tile"><div class="lbl">OKX 期貨持倉量</div><div class="val">$3.76B</div><div class="sub">24h -1.24%</div></div><div class="tile"><div class="lbl">資金費率（最新一期）</div><div class="val">0.0021%</div><div class="sub"></div></div><div class="tile"><div class="lbl">下方最大清算區（多單）</div><div class="val">68,719</div><div class="sub">約 $56.8M</div></div><div class="tile"><div class="lbl">上方最大清算區（空單）</div><div class="val">83,252</div><div class="sub">約 $20.2M</div></div></div>
+<figure><img src="img/etf_flows.png" alt="BTC 現貨 ETF 每日淨流入與累計淨流入" loading="lazy"><figcaption>BTC 現貨 ETF 每日淨流入與累計淨流入</figcaption></figure><figure><img src="img/liq_heatmap.png" alt="預估清算熱力圖（近 14 天）" loading="lazy"><figcaption>預估清算熱力圖（近 14 天）</figcaption></figure><figure><img src="img/liq_map.png" alt="預估清算地圖（現價 ±12%）" loading="lazy"><figcaption>預估清算地圖（現價 ±12%）</figcaption></figure><figure><img src="img/derivatives.png" alt="價格、持倉量、資金費率、多空比（近 14 天）" loading="lazy"><figcaption>價格、持倉量、資金費率、多空比（近 14 天）</figcaption></figure>
+<h2>近期每日數據</h2><div class="scroll"><table class="dataframe data">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>收盤價</th>
+      <th>持倉量</th>
+      <th>平均資金費率</th>
+      <th>多空比</th>
+      <th>多單清算</th>
+      <th>空單清算</th>
+      <th>ETF 淨流入</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>2026-11-09</th>
+      <td>74,208</td>
+      <td>3.76B</td>
+      <td>0.0021%</td>
+      <td>2.87</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-11-08</th>
+      <td>74,818</td>
+      <td>3.73B</td>
+      <td>0.0046%</td>
+      <td>2.81</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-11-07</th>
+      <td>75,830</td>
+      <td>3.80B</td>
+      <td>0.0042%</td>
+      <td>3.00</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-11-06</th>
+      <td>75,816</td>
+      <td>3.82B</td>
+      <td>0.0032%</td>
+      <td>3.05</td>
+      <td>—</td>
+      <td>—</td>
+      <td>-411.9M</td>
+    </tr>
+    <tr>
+      <th>2026-11-05</th>
+      <td>76,050</td>
+      <td>3.80B</td>
+      <td>0.0092%</td>
+      <td>2.87</td>
+      <td>—</td>
+      <td>—</td>
+      <td>-430.2M</td>
+    </tr>
+    <tr>
+      <th>2026-11-04</th>
+      <td>80,466</td>
+      <td>3.75B</td>
+      <td>0.0096%</td>
+      <td>1.54</td>
+      <td>—</td>
+      <td>—</td>
+      <td>+74.6M</td>
+    </tr>
+    <tr>
+      <th>2026-11-03</th>
+      <td>77,439</td>
+      <td>3.62B</td>
+      <td>0.0100%</td>
+      <td>2.38</td>
+      <td>—</td>
+      <td>—</td>
+      <td>-115.6M</td>
+    </tr>
+    <tr>
+      <th>2026-11-02</th>
+      <td>76,796</td>
+      <td>3.67B</td>
+      <td>0.0095%</td>
+      <td>2.69</td>
+      <td>—</td>
+      <td>—</td>
+      <td>-398.6M</td>
+    </tr>
+    <tr>
+      <th>2026-11-01</th>
+      <td>78,309</td>
+      <td>3.71B</td>
+      <td>0.0088%</td>
+      <td>2.39</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-10-31</th>
+      <td>77,521</td>
+      <td>3.74B</td>
+      <td>0.0100%</td>
+      <td>2.62</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-10-30</th>
+      <td>77,287</td>
+      <td>3.74B</td>
+      <td>0.0085%</td>
+      <td>2.92</td>
+      <td>—</td>
+      <td>—</td>
+      <td>-643.2M</td>
+    </tr>
+    <tr>
+      <th>2026-10-29</th>
+      <td>77,967</td>
+      <td>3.54B</td>
+      <td>0.0077%</td>
+      <td>2.32</td>
+      <td>—</td>
+      <td>—</td>
+      <td>+17.2M</td>
+    </tr>
+    <tr>
+      <th>2026-10-28</th>
+      <td>81,310</td>
+      <td>3.42B</td>
+      <td>0.0089%</td>
+      <td>1.92</td>
+      <td>—</td>
+      <td>—</td>
+      <td>+137.3M</td>
+    </tr>
+    <tr>
+      <th>2026-10-27</th>
+      <td>80,881</td>
+      <td>3.42B</td>
+      <td>0.0100%</td>
+      <td>2.07</td>
+      <td>—</td>
+      <td>—</td>
+      <td>+176.0M</td>
+    </tr>
+  </tbody>
+</table></div>
+<h2>資料狀態</h2><ul class="muted"><li><b>K 線</b>：✅ okx-swap</li><li><b>持倉量</b>：✅ okx</li><li><b>資金費率</b>：✅ okx</li><li><b>多空比</b>：✅ okx</li><li><b>ETF 資金流</b>：✅ ok</li><li><b>OKX 清算單</b>：✅ ok</li></ul>
+<h2>說明</h2><ul class="muted">
+<li>清算熱力圖／清算地圖是以公開的持倉量、多空比與假設槓桿分佈推估的近似值，不是 CoinGlass 的官方數據，僅供參考。</li>
+<li>ETF 資金流來源為 Farside Investors（單位：百萬美元），美股收盤後才會更新。</li>
+</ul></main></body></html>
