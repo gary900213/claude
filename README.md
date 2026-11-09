@@ -67,6 +67,32 @@ CoinGlass 的熱力圖要買 Professional 方案（約 $699／月）才拿得到
 
 - **交易所 BTC 淨流入／流出（鏈上）**：需要交易所錢包地址標記，目前找不到穩定的免費來源（CryptoQuant、Glassnode、CoinGlass 都要付費）。
 
+## 量化研究：歷史數據庫與回測（`quant/`）
+
+從幣安官方歷史數據站 `data.binance.vision` 下載 BTCUSDT 永續合約的長期歷史（美國主機也能連，不受 451 限制）：
+
+| 數據 | 起始 | 頻率 |
+|---|---|---|
+| K 線（含主動買入量） | 2020-01 | 1 小時 |
+| 資金費率 | 2020-01 | 每 8 小時（只有月檔，當月要等月底） |
+| 持倉量、大戶／全體多空比、主動買賣量比 | 2020-09 | 5 分鐘 → 整理成 1 小時 |
+
+建立／更新數據庫（第一次約 2 分鐘，之後只下載新檔）：
+
+```bash
+python -m quant.history
+```
+
+輸出 `data/history/`：`btcusdt_1h.csv.gz`（每小時）、`btcusdt_funding.csv.gz`、`btc_daily.csv.gz`（每日特徵表：報酬、已實現波動、資金費率 z 分數、持倉量變化、多空比、主動買入比、ETF 淨流入）。
+
+跑基準策略回測，報告輸出到 `docs/backtest/README.md`：
+
+```bash
+python -m quant.run_baseline
+```
+
+回測規則：第 D 天收盤的訊號只能賺第 D+1 天的報酬；扣除每單位換手 7 bps 成本與永續資金費率；ETF 流量往後挪一天（公布時間在美股收盤後）。
+
 ## 測試
 
 ```bash
