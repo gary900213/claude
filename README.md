@@ -91,6 +91,12 @@ python -m quant.history
 python -m quant.run_baseline
 ```
 
+第三步：衍生品過濾的滾動前推驗證，報告輸出到 `docs/filters/README.md`：
+
+```bash
+python -m quant.run_filters
+```
+
 回測規則：第 D 天收盤的訊號只能賺第 D+1 天的報酬；扣除每單位換手 7 bps 成本與永續資金費率；ETF 流量往後挪一天（公布時間在美股收盤後）。
 
 ## 測試

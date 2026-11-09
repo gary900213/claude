@@ -64,3 +64,21 @@ def test_trend_signal_range_and_no_lookahead():
     d2 = d.copy()
     d2.iloc[200:, 0] = 1.0
     assert trend_signal(d2).iloc[:200].equals(s.iloc[:200])
+
+
+def test_walk_forward_uses_only_past_data():
+    from quant.run_filters import Filter, walk_forward
+    rng = np.random.default_rng(1)
+    idx = pd.date_range("2020-01-01", periods=1400, freq="D", tz="UTC")
+    d = pd.DataFrame({"ret": rng.normal(0.001, 0.03, len(idx)),
+                      "funding_day": 0.0,
+                      "feat": rng.normal(0, 1, len(idx))}, index=idx)
+    base = pd.Series(1.0, index=idx)
+    f = Filter("t", "feat", "above", [0.0, 1.0], first_test="2022-07-01")
+    _, chosen_a = walk_forward(d, base, f, idx[0])
+    d2 = d.copy()
+    d2.loc["2023-01-01":, "ret"] = rng.normal(0.01, 0.03, len(d2.loc["2023-01-01":]))  # 改動未來
+    _, chosen_b = walk_forward(d2, base, f, idx[0])
+    # 2023-01 之前開始的測試段，選到的參數必須完全一樣
+    early = [(a[2], b[2]) for a, b in zip(chosen_a, chosen_b) if a[0] < pd.Timestamp("2023-01-01", tz="UTC")]
+    assert early and all(x == y for x, y in early)
