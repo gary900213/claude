@@ -38,6 +38,20 @@ jobs:
       - name: Fetch data and build report
         run: python -m btc_daily.main
 
+      # 幣安歷史原始檔（約 30 MB）不進 git，用快取保存，避免每次重新下載
+      - name: Cache Binance raw files
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: binance-raw-${{ github.run_id }}
+          restore-keys: binance-raw-
+
+      - name: Update Binance history
+        run: python -m quant.history
+
+      - name: Paper trading signal
+        run: python -m quant.paper
+
       - name: Commit results
         run: |
           git config user.name "github-actions[bot]"

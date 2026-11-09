@@ -113,7 +113,48 @@ def load_klines(today: date) -> pd.DataFrame:
     df = pd.concat([read_csv_from_zip(b, KLINE_COLS) for b in fetch_many(rels)], ignore_index=True)
     df["time"] = pd.to_datetime(df["open_time"].astype("int64"), unit="ms", utc=True)
     keep = ["open", "high", "low", "close", "volume", "quote_volume", "taker_buy_volume"]
-    return (df.drop_duplicates("time").sort_values("time").set_index("time")[keep].astype(float))
+    df = df.drop_duplicates("time").sort_values("time").set_index("time")[keep].astype(float)
+    return fill_kline_gaps(df)
+
+
+SPOT_API = "https://data-api.binance.vision/api/v3/klines"
+
+
+def fill_kline_gaps(df: pd.DataFrame) -> pd.DataFrame:
+    """幣安歷史檔偶爾整天缺漏（例如 2026-10-28），用幣安現貨 K 線補上。
+
+    現貨與永續價格通常差不到 0.1%，對日線策略影響很小；補上的小時會記在 log。
+    """
+    full = pd.date_range(df.index[0], df.index[-1], freq="h")
+    missing = full.difference(df.index)
+    if missing.empty:
+        return df
+    filled = []
+    # 把連續缺漏的小時分段，每段最多 1000 根
+    groups = (missing.to_series().diff() != pd.Timedelta("1h")).cumsum()
+    for _, seg in missing.to_series().groupby(groups):
+        try:
+            r = _session.get(SPOT_API, timeout=30, params={
+                "symbol": SYMBOL, "interval": "1h", "limit": 1000,
+                "startTime": int(seg.iloc[0].timestamp() * 1000),
+                "endTime": int(seg.iloc[-1].timestamp() * 1000)})
+            r.raise_for_status()
+            rows = r.json()
+        except requests.RequestException as e:
+            log(f"補缺失敗 {seg.iloc[0]} ~ {seg.iloc[-1]}: {e}")
+            continue
+        if rows:
+            f = pd.DataFrame(rows).iloc[:, :11]
+            f.columns = KLINE_COLS[:11]
+            f["time"] = pd.to_datetime(f["open_time"].astype("int64"), unit="ms", utc=True)
+            filled.append(f.set_index("time")[df.columns].astype(float))
+    if filled:
+        add = pd.concat(filled)
+        add = add[add.index.isin(missing)]
+        log(f"K 線缺 {len(missing)} 小時，已用現貨補上 {len(add)} 小時"
+            f"（{add.index.min():%Y-%m-%d} 等）")
+        df = pd.concat([df, add]).sort_index()
+    return df
 
 
 def load_funding(today: date) -> pd.Series:

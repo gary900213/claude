@@ -6,7 +6,9 @@ import pandas as pd
 
 
 def zscore(s: pd.Series, window: int) -> pd.Series:
-    return (s - s.rolling(window).mean()) / s.rolling(window).std()
+    """滾動 z 分數；允許視窗內有少量缺漏（至少 80% 有值）。"""
+    r = s.rolling(window, min_periods=int(window * 0.8))
+    return (s - r.mean()) / r.std()
 
 
 def add_features(d: pd.DataFrame) -> pd.DataFrame:

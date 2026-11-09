@@ -97,6 +97,14 @@ python -m quant.run_baseline
 python -m quant.run_filters
 ```
 
+紙上交易（凍結策略，每天產生建議倉位並結算），報告輸出到 `docs/paper/README.md`：
+
+```bash
+python -m quant.paper
+```
+
+訊號紀錄 `data/paper/signals.csv` 只會新增、不會改寫，每筆都記下產生時間；績效以「產生當天的 UTC 收盤」執行來結算。
+
 回測規則：第 D 天收盤的訊號只能賺第 D+1 天的報酬；扣除每單位換手 7 bps 成本與永續資金費率；ETF 流量往後挪一天（公布時間在美股收盤後）。
 
 ## 測試

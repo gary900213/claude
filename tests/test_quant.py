@@ -82,3 +82,42 @@ def test_walk_forward_uses_only_past_data():
     # 2023-01 之前開始的測試段，選到的參數必須完全一樣
     early = [(a[2], b[2]) for a, b in zip(chosen_a, chosen_b) if a[0] < pd.Timestamp("2023-01-01", tz="UTC")]
     assert early and all(x == y for x, y in early)
+
+
+def _paper_frame(n=200):
+    idx = pd.date_range("2026-01-01", periods=n, freq="D", tz="UTC")
+    rng = np.random.default_rng(3)
+    close = 50000 * np.exp(np.cumsum(rng.normal(0.002, 0.02, n)))
+    return pd.DataFrame({"close": close, "ret": pd.Series(close).pct_change().values,
+                         "rv_30d": 0.5, "ls_z90": 0.0, "oi_z90": 0.0, "funding_day": 0.0}, index=idx)
+
+
+def test_paper_signals_are_append_only(tmp_path, monkeypatch):
+    from quant import paper
+    monkeypatch.setattr(paper, "PAPER", tmp_path)
+    d = _paper_frame()
+    t1 = pd.Timestamp("2026-07-20 09:00", tz="UTC")
+    s1 = paper.append_signals(d.loc[:"2026-07-18"], t1)
+    assert len(s1) == 1 and s1["signal_date"].iloc[0] == pd.Timestamp("2026-07-18", tz="UTC")
+    # 同一天再跑一次：沒有新數據就不新增
+    assert len(paper.append_signals(d.loc[:"2026-07-18"], t1)) == 1
+    # 之後的數據即使改動，舊紀錄也不能被改寫
+    d2 = d.copy()
+    d2.loc[:"2026-07-18", "close"] *= 2
+    s2 = paper.append_signals(d2.loc[:"2026-07-19"], t1 + pd.Timedelta(days=1))
+    assert len(s2) == 2
+    assert s2["close"].iloc[0] == s1["close"].iloc[0]
+
+
+def test_paper_executes_on_generation_day():
+    from quant.paper import executed_positions
+    sig = pd.DataFrame({
+        "signal_date": pd.to_datetime(["2026-07-18", "2026-07-19"], utc=True),
+        "generated_at_utc": pd.to_datetime(["2026-07-20 09:00", "2026-07-20 15:00"], utc=True),
+        "target_pos": [0.5, 1.0],
+    })
+    idx = pd.date_range("2026-07-15", "2026-07-22", freq="D", tz="UTC")
+    pos = executed_positions(sig, idx)
+    # 兩筆都在 07-20 產生 → 07-20 收盤執行最後一筆；07-18、07-19 不能有倉位
+    assert pos.index.min() == pd.Timestamp("2026-07-20", tz="UTC")
+    assert pos.loc["2026-07-20"] == 1.0 and pos.loc["2026-07-22"] == 1.0
