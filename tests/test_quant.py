@@ -121,3 +121,21 @@ def test_paper_executes_on_generation_day():
     # 兩筆都在 07-20 產生 → 07-20 收盤執行最後一筆；07-18、07-19 不能有倉位
     assert pos.index.min() == pd.Timestamp("2026-07-20", tz="UTC")
     assert pos.loc["2026-07-20"] == 1.0 and pos.loc["2026-07-22"] == 1.0
+
+
+def test_apply_band_skips_small_changes_but_always_exits():
+    from quant.backtest import apply_band
+    pos = pd.Series([0.5, 0.55, 0.62, 0.3, 0.0, 0.05])
+    assert apply_band(pos, 0.1).tolist() == [0.5, 0.5, 0.62, 0.3, 0.0, 0.0]
+
+
+def test_order_instructions_today_buy():
+    from quant.paper import order_instructions
+    idx = pd.date_range("2026-11-08", periods=3, freq="D", tz="UTC")
+    pos = pd.Series([0.0, 0.0, 0.8], index=idx)
+    now = pd.Timestamp("2026-11-10 00:05", tz="UTC")
+    lines = order_instructions(pd.DataFrame(), pos, {"target_pos": 0.8, "close": 80000.0}, now, 10000)
+    text = "\n".join(lines)
+    assert "今天要買入 0.80 倍" in text and "8,000 美元" in text and "0.1000 BTC" in text
+    flat = order_instructions(pd.DataFrame(), pos * 0, {"target_pos": 0.0, "close": 80000.0}, now, None)
+    assert "尚未建倉" in flat[0]

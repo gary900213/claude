@@ -24,6 +24,8 @@
       "ls_z90": 1.0,
       "oi_z90": 1.0
     },
-    "cost_bps": 7.0
-  }
+    "cost_bps": 7.0,
+    "rebalance_band": 0.1
+  },
+  "source": "archive"
 }
