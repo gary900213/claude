@@ -151,3 +151,21 @@ def test_multi_spot_version_pays_no_funding():
     perp, spot = res["B 凍結策略（永續）"].daily, res["C 凍結策略（現貨）"].daily
     assert perp["funding"].sum() > 0 and spot["funding"].sum() == 0
     assert spot["cost"].sum() > perp["cost"].sum()  # 現貨手續費較高
+
+
+def test_v2_has_no_filters_and_separate_paths():
+    from quant import paper
+    d = _paper_frame()
+    d["ls_z90"] = 5.0  # 散戶極度看多：v1 會空手，v2 不受影響
+    v1 = paper.compute(d)
+    old = paper.STRATEGY
+    try:
+        paper.STRATEGY = paper.STRATEGIES["v2"]
+        v2 = paper.compute(d)
+    finally:
+        paper.STRATEGY = old
+    assert (v1["target_pos"] == 0).all()
+    assert (v2["target_pos"] > 0).any() and not v2["filter_ls"].any()
+    assert paper.paths("v1", False)[0].name == "paper"
+    assert paper.paths("v2", False)[0].name == "paper_v2"
+    assert paper.paths("v2", True)[0].name == "paper_live_v2"

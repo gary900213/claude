@@ -1,0 +1,28 @@
+{
+  "signal_date": "2026-11-08",
+  "generated_at_utc": "2026-11-10 06:00",
+  "target_pos": 0.0,
+  "close": 74823.5,
+  "trend": -0.3333333333333333,
+  "vol_scale": 1.1611,
+  "ls_z90": 2.273,
+  "oi_z90": -0.833,
+  "reasons_flat": [
+    "趨勢分數 ≤ 0（不做多）"
+  ],
+  "strategy": {
+    "trend_lookbacks": [
+      20,
+      60,
+      120
+    ],
+    "target_vol": 0.4,
+    "max_leverage": 1.5,
+    "cost_bps": 7.0,
+    "rebalance_band": 0.1,
+    "version": "v2-2026-11-10",
+    "filters": {},
+    "description": "只用趨勢（20/60/120 日）× 波動率目標 40%（上限 1.5 倍），不加過濾條件"
+  },
+  "source": "archive"
+}

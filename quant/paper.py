@@ -36,15 +36,31 @@ PAPER = ROOT / "data" / "paper"
 DOCS = ROOT / "docs" / "paper"
 
 # ---------------------------------------------------------------- 凍結的策略設定
-STRATEGY = {
-    "version": "v1-2026-11-09",
+_COMMON = {
     "trend_lookbacks": [20, 60, 120],
     "target_vol": 0.40,
     "max_leverage": 1.5,
-    "filters": {"ls_z90": 1.0, "oi_z90": 1.0},  # 指標 > 門檻時倉位歸零
     "cost_bps": 7.0,
     "rebalance_band": 0.10,  # 執行規則：倉位變化 < 0.10 不調整（目標為 0 時一律出場）
 }
+STRATEGIES = {
+    "v1": {**_COMMON, "version": "v1-2026-11-09",
+           "filters": {"ls_z90": 1.0, "oi_z90": 1.0},  # 指標 > 門檻時倉位歸零
+           "description": "趨勢（20/60/120 日）× 波動率目標 40%（上限 1.5 倍），"
+                          "散戶多空比 z > 1 或持倉量水位 z > 1 時空手"},
+    # v2：多幣種驗證發現兩個過濾條件無法延伸到其他幣，改為只用趨勢，與 v1 並行比較
+    "v2": {**_COMMON, "version": "v2-2026-11-10", "filters": {},
+           "description": "只用趨勢（20/60/120 日）× 波動率目標 40%（上限 1.5 倍），不加過濾條件"},
+}
+STRATEGY = STRATEGIES["v1"]  # 目前使用中的策略（main() 會依 --version 切換）
+
+
+def paths(version: str, live: bool) -> tuple[Path, Path]:
+    """v1 沿用原本的資料夾；其他版本加上 _v2 等後綴。"""
+    name = "paper_live" if live else "paper"
+    if version != "v1":
+        name += f"_{version}"
+    return ROOT / "data" / name, ROOT / "docs" / name
 
 SIGNAL_COLS = ["signal_date", "generated_at_utc", "strategy", "close", "trend", "vol_scale",
                "ls_z90", "oi_z90", "filter_ls", "filter_oi", "target_pos", "source"]
@@ -59,8 +75,10 @@ def compute(d: pd.DataFrame) -> pd.DataFrame:
     out["vol_scale"] = vol_scale(d, s["target_vol"], s["max_leverage"])
     out["ls_z90"] = d["ls_z90"]
     out["oi_z90"] = d["oi_z90"]
-    out["filter_ls"] = (d["ls_z90"] > s["filters"]["ls_z90"]).fillna(False)
-    out["filter_oi"] = (d["oi_z90"] > s["filters"]["oi_z90"]).fillna(False)
+    f = s["filters"]
+    no = pd.Series(False, index=d.index)
+    out["filter_ls"] = (d["ls_z90"] > f["ls_z90"]).fillna(False) if "ls_z90" in f else no
+    out["filter_oi"] = (d["oi_z90"] > f["oi_z90"]).fillna(False) if "oi_z90" in f else no
     pos = out["trend"].clip(lower=0) * out["vol_scale"]
     out["target_pos"] = pos.where(~(out["filter_ls"] | out["filter_oi"]), 0.0)
     return out
@@ -158,15 +176,15 @@ def order_instructions(sig: pd.DataFrame, pos: pd.Series, latest: dict, now: pd.
     return out
 
 
-def main(live: bool = False, capital: float | None = None) -> int:
+def main(live: bool = False, capital: float | None = None, version: str = "v1") -> int:
     """live=True：用幣安即時 API 補最新數據（由 quant.live 呼叫）。
 
     兩種模式的紀錄分開存：歷史檔模式 → data/paper、docs/paper（GitHub Actions 自動跑）；
     即時模式 → data/paper_live、docs/paper_live（在你的電腦上跑），避免兩邊同時寫同一個檔案。
     """
-    global PAPER, DOCS
-    if live:
-        PAPER, DOCS = ROOT / "data" / "paper_live", ROOT / "docs" / "paper_live"
+    global PAPER, DOCS, STRATEGY
+    STRATEGY = STRATEGIES[version]
+    PAPER, DOCS = paths(version, live)
     now = pd.Timestamp(datetime.now(timezone.utc))
     preview = None
     if live:
@@ -261,10 +279,9 @@ def main(live: bool = False, capital: float | None = None) -> int:
 
     pos_txt = f"{latest['target_pos']:.2f} 倍" if latest["target_pos"] > 0 else "空手（0）"
     lines = [
-        "# BTC 紙上交易" + ("（即時模式）" if live else "（歷史檔模式，延遲約 1 天）"),
+        f"# BTC 紙上交易 {version}" + ("（即時模式）" if live else "（歷史檔模式，延遲約 1 天）"),
         "",
-        f"策略版本 `{STRATEGY['version']}`：趨勢（20/60/120 日）× 波動率目標 40%（上限 1.5 倍），"
-        "散戶多空比 z > 1 或持倉量水位 z > 1 時空手。參數已凍結，紙上交易期間不再調整。",
+        f"策略版本 `{STRATEGY['version']}`：{STRATEGY['description']}。參數已凍結，紙上交易期間不再調整。",
         "",
         "## 目前建議",
         "",
@@ -303,7 +320,9 @@ def cli(argv=None) -> int:
     import argparse
     ap = argparse.ArgumentParser(description="紙上交易（歷史檔模式）；即時模式請用 python -m quant.live")
     ap.add_argument("--capital", type=float, help="總資金（美元），用來換算下單數量")
-    return main(capital=ap.parse_args(argv).capital)
+    ap.add_argument("--version", choices=sorted(STRATEGIES), default="v1", help="凍結策略版本")
+    args = ap.parse_args(argv)
+    return main(capital=args.capital, version=args.version)
 
 
 if __name__ == "__main__":

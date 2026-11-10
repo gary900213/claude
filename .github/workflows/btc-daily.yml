@@ -49,8 +49,10 @@ jobs:
       - name: Update Binance history
         run: python -m quant.history
 
-      - name: Paper trading signal
-        run: python -m quant.paper
+      - name: Paper trading signal (v1 and v2)
+        run: |
+          python -m quant.paper --version v1
+          python -m quant.paper --version v2
 
       - name: Commit results
         run: |

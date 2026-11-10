@@ -179,6 +179,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="即時模式（需要能連幣安 API）")
     ap.add_argument("--check", action="store_true", help="檢查 API 與歷史檔是否一致")
     ap.add_argument("--capital", type=float, help="總資金（美元），用來換算下單數量")
+    ap.add_argument("--version", default="v1", help="凍結策略版本（v1 或 v2）")
     ap.add_argument("--no-fallback", action="store_true", help="即時模式失敗時不要退回歷史檔模式")
     args = ap.parse_args(argv)
     # 用 python -m 執行時本檔會以 __main__ 與 quant.live 兩個名字載入，兩個例外類別都要接
@@ -187,13 +188,13 @@ def main(argv=None) -> int:
     try:
         if args.check:
             return check_overlap()
-        return paper.main(live=True, capital=args.capital)
+        return paper.main(live=True, capital=args.capital, version=args.version)
     except (LiveUnavailable, _LU) as e:
         print(f"[live] {e}")
         if args.check or args.no_fallback:
             return 2
         print("[live] 改用歷史檔模式（延遲約 1 天）")
-        return paper.main(live=False, capital=args.capital)
+        return paper.main(live=False, capital=args.capital, version=args.version)
 
 
 if __name__ == "__main__":
