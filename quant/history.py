@@ -1,4 +1,4 @@
-"""從幣安官方歷史數據站 data.binance.vision 建立 BTC 歷史數據庫。
+"""從幣安官方歷史數據站 data.binance.vision 建立歷史數據庫（預設 BTC，可指定其他幣種）。
 
 下載內容（USDT 本位永續 BTCUSDT）：
 - 1 小時 K 線（含主動買入量）       2020-01 起
@@ -11,7 +11,8 @@
 - data/history/btcusdt_funding.csv.gz 每期資金費率
 - data/history/btc_daily.csv.gz       每日特徵表（回測用）
 
-用法：python -m quant.history
+用法：python -m quant.history                     # 只更新 BTC
+      python -m quant.history ETHUSDT XRPUSDT     # 其他幣種
 """
 from __future__ import annotations
 
@@ -104,23 +105,23 @@ def fetch_many(rels: list[str], workers: int = 8) -> list[bytes]:
 
 # ---------------------------------------------------------------- 各資料集
 
-def load_klines(today: date) -> pd.DataFrame:
+def load_klines(today: date, symbol: str = SYMBOL) -> pd.DataFrame:
     this_month = date(today.year, today.month, 1)
-    rels = [f"monthly/klines/{SYMBOL}/1h/{SYMBOL}-1h-{y}-{m:02d}.zip"
+    rels = [f"monthly/klines/{symbol}/1h/{symbol}-1h-{y}-{m:02d}.zip"
             for y, m in months(KLINE_START, this_month)]
-    rels += [f"daily/klines/{SYMBOL}/1h/{SYMBOL}-1h-{d}.zip"
+    rels += [f"daily/klines/{symbol}/1h/{symbol}-1h-{d}.zip"
              for d in days(this_month, today - timedelta(days=1))]
     df = pd.concat([read_csv_from_zip(b, KLINE_COLS) for b in fetch_many(rels)], ignore_index=True)
     df["time"] = pd.to_datetime(df["open_time"].astype("int64"), unit="ms", utc=True)
     keep = ["open", "high", "low", "close", "volume", "quote_volume", "taker_buy_volume"]
     df = df.drop_duplicates("time").sort_values("time").set_index("time")[keep].astype(float)
-    return fill_kline_gaps(df)
+    return fill_kline_gaps(df, symbol)
 
 
 SPOT_API = "https://data-api.binance.vision/api/v3/klines"
 
 
-def fill_kline_gaps(df: pd.DataFrame) -> pd.DataFrame:
+def fill_kline_gaps(df: pd.DataFrame, symbol: str = SYMBOL) -> pd.DataFrame:
     """幣安歷史檔偶爾整天缺漏（例如 2026-10-28），用幣安現貨 K 線補上。
 
     現貨與永續價格通常差不到 0.1%，對日線策略影響很小；補上的小時會記在 log。
@@ -135,7 +136,7 @@ def fill_kline_gaps(df: pd.DataFrame) -> pd.DataFrame:
     for _, seg in missing.to_series().groupby(groups):
         try:
             r = _session.get(SPOT_API, timeout=30, params={
-                "symbol": SYMBOL, "interval": "1h", "limit": 1000,
+                "symbol": symbol, "interval": "1h", "limit": 1000,
                 "startTime": int(seg.iloc[0].timestamp() * 1000),
                 "endTime": int(seg.iloc[-1].timestamp() * 1000)})
             r.raise_for_status()
@@ -157,9 +158,9 @@ def fill_kline_gaps(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def load_funding(today: date) -> pd.Series:
+def load_funding(today: date, symbol: str = SYMBOL) -> pd.Series:
     this_month = date(today.year, today.month, 1)
-    rels = [f"monthly/fundingRate/{SYMBOL}/{SYMBOL}-fundingRate-{y}-{m:02d}.zip"
+    rels = [f"monthly/fundingRate/{symbol}/{symbol}-fundingRate-{y}-{m:02d}.zip"
             for y, m in months(KLINE_START, this_month)]
     df = pd.concat([read_csv_from_zip(b, ["calc_time", "funding_interval_hours", "last_funding_rate"])
                     for b in fetch_many(rels)], ignore_index=True)
@@ -169,8 +170,8 @@ def load_funding(today: date) -> pd.Series:
     return df.drop_duplicates("time").sort_values("time").set_index("time")["last_funding_rate"].astype(float)
 
 
-def load_metrics(today: date) -> pd.DataFrame:
-    rels = [f"daily/metrics/{SYMBOL}/{SYMBOL}-metrics-{d}.zip"
+def load_metrics(today: date, symbol: str = SYMBOL) -> pd.DataFrame:
+    rels = [f"daily/metrics/{symbol}/{symbol}-metrics-{d}.zip"
             for d in days(METRICS_START, today - timedelta(days=1))]
     frames = []
     for b in fetch_many(rels):
@@ -235,33 +236,48 @@ def build_daily(h: pd.DataFrame, funding: pd.Series, etf: pd.Series | None) -> p
     return d
 
 
-def main() -> int:
+def file_names(symbol: str) -> dict[str, Path]:
+    base = symbol.lower().removesuffix("usdt")
+    return {"hourly": OUT / f"{symbol.lower()}_1h.csv.gz",
+            "funding": OUT / f"{symbol.lower()}_funding.csv.gz",
+            "daily": OUT / f"{base}_daily.csv.gz"}
+
+
+def update(symbol: str, today: date) -> None:
+    names = file_names(symbol)
+    log(f"=== {symbol} ===")
+    k = load_klines(today, symbol)
+    log(f"  K 線 {len(k)} 小時，{k.index[0]:%Y-%m-%d} ~ {k.index[-1]:%Y-%m-%d %H:%M}")
+    f = load_funding(today, symbol)
+    log(f"  資金費率 {len(f)} 期，{f.index[0]:%Y-%m-%d} ~ {f.index[-1]:%Y-%m-%d}")
+    m = load_metrics(today, symbol)
+    log(f"  持倉量與多空比 {m['oi_btc'].notna().sum()} 小時，{m.index[0]:%Y-%m-%d} ~ {m.index[-1]:%Y-%m-%d}")
+    h = k.join(m, how="left")
+    h.to_csv(names["hourly"], float_format="%.8g")
+    f.rename("funding_rate").to_csv(names["funding"], float_format="%.8g")
+    etf = None
+    etf_path = ROOT / "data" / "etf_flows.csv"
+    if symbol == "BTCUSDT" and etf_path.exists():  # 現貨 ETF 資金流只有 BTC
+        etf = pd.read_csv(etf_path, index_col=0, parse_dates=True)["Total"]
+    daily = build_daily(h, f, etf)
+    daily.to_csv(names["daily"], float_format="%.8g")
+    log(f"  每日特徵表 {len(daily)} 天 → {names['daily']}")
+
+
+def main(argv=None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description="下載幣安 USDT 永續歷史數據")
+    ap.add_argument("symbols", nargs="*", default=[SYMBOL], help="例如 BTCUSDT ETHUSDT（預設 BTCUSDT）")
+    args = ap.parse_args(argv)
     today = pd.Timestamp.now(tz="UTC").date()
     OUT.mkdir(parents=True, exist_ok=True)
-    log("K 線…")
-    k = load_klines(today)
-    log(f"  {len(k)} 小時，{k.index[0]:%Y-%m-%d} ~ {k.index[-1]:%Y-%m-%d %H:%M}")
-    log("資金費率…")
-    f = load_funding(today)
-    log(f"  {len(f)} 期，{f.index[0]:%Y-%m-%d} ~ {f.index[-1]:%Y-%m-%d}")
-    log("持倉量與多空比（每日檔，第一次會比較久）…")
-    m = load_metrics(today)
-    log(f"  {m['oi_btc'].notna().sum()} 小時，{m.index[0]:%Y-%m-%d} ~ {m.index[-1]:%Y-%m-%d}")
-
-    h = k.join(m, how="left")
-    h.to_csv(OUT / "btcusdt_1h.csv.gz", float_format="%.8g")
-    f.rename("funding_rate").to_csv(OUT / "btcusdt_funding.csv.gz", float_format="%.8g")
-
-    etf_path = ROOT / "data" / "etf_flows.csv"
-    etf = pd.read_csv(etf_path, index_col=0, parse_dates=True)["Total"] if etf_path.exists() else None
-    daily = build_daily(h, f, etf)
-    daily.to_csv(OUT / "btc_daily.csv.gz", float_format="%.8g")
-    log(f"每日特徵表 {len(daily)} 天 → {OUT / 'btc_daily.csv.gz'}")
+    for sym in args.symbols:
+        update(sym.upper(), today)
     return 0
 
 
-def load_daily() -> pd.DataFrame:
-    return pd.read_csv(OUT / "btc_daily.csv.gz", index_col=0, parse_dates=True)
+def load_daily(symbol: str = SYMBOL) -> pd.DataFrame:
+    return pd.read_csv(file_names(symbol)["daily"], index_col=0, parse_dates=True)
 
 
 if __name__ == "__main__":

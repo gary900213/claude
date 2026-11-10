@@ -139,3 +139,15 @@ def test_order_instructions_today_buy():
     assert "今天要買入 0.80 倍" in text and "8,000 美元" in text and "0.1000 BTC" in text
     flat = order_instructions(pd.DataFrame(), pos * 0, {"target_pos": 0.0, "close": 80000.0}, now, None)
     assert "尚未建倉" in flat[0]
+
+
+def test_multi_spot_version_pays_no_funding():
+    from quant.run_multi import strategies
+    idx = pd.date_range("2024-01-01", periods=300, freq="D", tz="UTC")
+    close = pd.Series(np.linspace(100, 300, 300), index=idx)  # 一路上漲 → 趨勢做多
+    d = pd.DataFrame({"close": close, "ret": close.pct_change(), "rv_30d": 0.5,
+                      "ls_z90": 0.0, "oi_z90": 0.0, "funding_day": 0.001}, index=idx)
+    res = strategies(d)
+    perp, spot = res["B 凍結策略（永續）"].daily, res["C 凍結策略（現貨）"].daily
+    assert perp["funding"].sum() > 0 and spot["funding"].sum() == 0
+    assert spot["cost"].sum() > perp["cost"].sum()  # 現貨手續費較高
