@@ -72,6 +72,10 @@ def quintiles(d: pd.DataFrame, feat: str) -> list[str]:
     return [f"{m:+.1%}" for m in x.groupby(q)["fwd_7d"].mean()]
 
 
+def sharpe_of(net: pd.Series) -> float:
+    return float(net.mean() / net.std() * np.sqrt(bt.DAYS_PER_YEAR)) if net.std() > 0 else float("nan")
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     data, results, starts = {}, {}, {}
@@ -130,6 +134,28 @@ def main() -> int:
                           **dict(zip([f"Q{i}" for i in range(1, 6)], quintiles(d, feat)))})
     qtab = pd.DataFrame(qrows).set_index(["指標", "幣種"]).sort_index()
 
+    # 5) 事後檢查：兩個過濾條件拆開看（看過上面結果後才做的測試，只能當參考）
+    split_rows, split_nets = [], {}
+    for sym, d in data.items():
+        c = compute(d)
+        base = c["trend"].clip(lower=0) * c["vol_scale"]
+        variants = {"A 只用趨勢": base, "B 雙過濾": c["target_pos"],
+                    "D 只用散戶多空比": base.where(~c["filter_ls"], 0.0),
+                    "E 只用持倉量水位": base.where(~c["filter_oi"], 0.0)}
+        row = {"幣種": sym.removesuffix("USDT")}
+        for k, p in variants.items():
+            r = bt.run("", d["ret"], bt.apply_band(p, STRATEGY["rebalance_band"]),
+                       STRATEGY["cost_bps"], d["funding_day"])
+            row[k] = f"{bt.stats(sliced(r, starts[sym]))['夏普值']:.2f}"
+            split_nets.setdefault(k, {})[sym] = r.daily["net"]
+        split_rows.append(row)
+    row = {"幣種": f"{len(data)} 幣組合"}
+    for k, v in split_nets.items():
+        net = pd.DataFrame(v).loc[common:].mean(axis=1)
+        row[k] = f"{sharpe_of(net):.2f}"
+    split_rows.append(row)
+    split = pd.DataFrame(split_rows)
+
     # 圖 1：各幣種 A vs B（對數刻度）
     n = len(results)
     cols = 2
@@ -142,12 +168,14 @@ def main() -> int:
             ax.plot(eq.index, eq, color=color, lw=1.5, label=name)
         ax.set_yscale("log")
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:g}x"))
+        ax.yaxis.set_minor_formatter(plt.FuncFormatter(lambda v, _: f"{v:.1f}x"))
         ax.set_title(sym.removesuffix("USDT"), fontsize=11)
     ax = axes[n]
     for name, color in (("A 只用趨勢", BLUE), ("B 凍結策略（永續）", ORANGE), ("C 凍結策略（現貨）", AQUA)):
         ax.plot(port_eq[name].index, port_eq[name], color=color, lw=1.8, label=name)
     ax.set_yscale("log")
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:g}x"))
+    ax.yaxis.set_minor_formatter(plt.FuncFormatter(lambda v, _: f"{v:.1f}x"))
     ax.set_title(f"{n} 幣等權重組合", fontsize=11)
     ax.legend(frameon=False, loc="upper left", fontsize=8)
     for extra in axes[n + 1:]:
@@ -190,6 +218,12 @@ def main() -> int:
         "如果「指標越高、之後越差」在多數幣種都成立，過濾條件才比較可信。",
         "",
         qtab.reset_index().to_markdown(index=False),
+        "",
+        "## 5. 事後檢查：兩個過濾條件拆開（夏普值，各幣從過濾指標可用起）",
+        "",
+        "注意：這是看過上面結果後才做的測試，屬於事後挑選，只能當參考，不能當成新的驗證。",
+        "",
+        split.to_markdown(index=False),
         "",
     ]
     (OUT / "README.md").write_text("\n".join(lines), encoding="utf-8")
