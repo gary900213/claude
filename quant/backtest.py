@@ -64,7 +64,7 @@ def stats(r: Result, start=None, end=None) -> dict:
         "卡瑪比": cagr / abs(mdd) if mdd < 0 else np.nan,
         "平均曝險": d["pos"].abs().mean(),
         "年換手": d["pos"].diff().abs().sum() / years,
-        "成本拖累/年": (d["cost"].sum() + d["funding"].sum()) / years,
+        "成本拖累/年": (d.get("cost", pd.Series(0.0)).sum() + d.get("funding", pd.Series(0.0)).sum()) / years,
     }
 
 

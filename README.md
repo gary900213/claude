@@ -139,6 +139,25 @@ python -m quant.entry_study
 報告在 `docs/entry/README.md`。結論：收盤後立刻市價成交最好；掛低價等回檔或分批買，平均反而更差（沒成交時追單的損失大於省下的價差）。
 倉位變化小於 0.10 倍不調整（不交易區間），交易次數從每年約 154 次降到 57 次，績效不變。
 
+### 多幣種驗證與資金費率套利
+
+```bash
+python -m quant.history ETHUSDT XRPUSDT BNBUSDT LTCUSDT LINKUSDT ADAUSDT
+```
+
+```bash
+python -m quant.run_multi
+```
+
+```bash
+python -m quant.carry
+```
+
+- `docs/multi/`：BTC 上凍結的策略原封不動套用到 6 個主流幣（最乾淨的樣本外測試）。結論：持倉量過濾只在 BTC 有效，散戶多空比過濾效果很弱，因此另開 v2（只用趨勢）紙上交易並行比較。
+- `docs/carry/`：現貨多＋永續空賺資金費率。歷史年化約 5～6%（以本金計），但集中在 2021 年；2025 年後每年只剩 1～2%，低於無風險利率。
+
+紙上交易 v2：`python -m quant.paper --version v2`（即時模式：`python -m quant.live --version v2`）。
+
 回測規則：第 D 天收盤的訊號只能賺第 D+1 天的報酬；扣除每單位換手 7 bps 成本與永續資金費率；ETF 流量往後挪一天（公布時間在美股收盤後）。
 
 ## 測試

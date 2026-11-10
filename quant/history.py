@@ -49,14 +49,14 @@ def log(msg: str) -> None:
 
 # ---------------------------------------------------------------- 下載與快取
 
-def fetch_zip(rel: str) -> bytes | None:
-    """下載 BASE/rel；有快取就用快取。404 回傳 None（不快取，之後可能會出現）。"""
-    path = RAW / rel
+def fetch_zip(rel: str, base: str = BASE, raw: Path = RAW) -> bytes | None:
+    """下載 base/rel；有快取就用快取。404 回傳 None（不快取，之後可能會出現）。"""
+    path = raw / rel
     if path.exists():
         return path.read_bytes()
     for attempt in range(3):
         try:
-            r = _session.get(f"{BASE}/{rel}", timeout=60)
+            r = _session.get(f"{base}/{rel}", timeout=60)
             if r.status_code == 404:
                 return None
             r.raise_for_status()
@@ -95,12 +95,12 @@ def days(start: date, end_inclusive: date):
         d += timedelta(days=1)
 
 
-def fetch_many(rels: list[str], workers: int = 8) -> list[bytes]:
-    todo = [r for r in rels if not (RAW / r).exists()]
+def fetch_many(rels: list[str], workers: int = 8, base: str = BASE, raw: Path = RAW) -> list[bytes]:
+    todo = [r for r in rels if not (raw / r).exists()]
     if todo:
         log(f"需要下載 {len(todo)} 個檔案（已快取 {len(rels) - len(todo)} 個）")
     with ThreadPoolExecutor(workers) as ex:
-        return [b for b in ex.map(fetch_zip, rels) if b is not None]
+        return [b for b in ex.map(lambda r: fetch_zip(r, base, raw), rels) if b is not None]
 
 
 # ---------------------------------------------------------------- 各資料集
