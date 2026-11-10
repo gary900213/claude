@@ -3,7 +3,7 @@
   "generated_at_utc": "2026-11-09 22:22",
   "target_pos": 0.0,
   "close": 74823.5,
-  "trend": -0.3333333333333333,
+  "trend": -0.333333,
   "vol_scale": 1.1611,
   "ls_z90": 2.273,
   "oi_z90": -0.833,
@@ -12,7 +12,6 @@
     "散戶多空比 z = 2.27 > 1（過度看多）"
   ],
   "strategy": {
-    "version": "v1-2026-11-09",
     "trend_lookbacks": [
       20,
       60,
@@ -20,12 +19,14 @@
     ],
     "target_vol": 0.4,
     "max_leverage": 1.5,
+    "cost_bps": 7.0,
+    "rebalance_band": 0.1,
+    "version": "v1-2026-11-09",
     "filters": {
       "ls_z90": 1.0,
       "oi_z90": 1.0
     },
-    "cost_bps": 7.0,
-    "rebalance_band": 0.1
+    "description": "趨勢（20/60/120 日）× 波動率目標 40%（上限 1.5 倍），散戶多空比 z > 1 或持倉量水位 z > 1 時空手"
   },
   "source": "archive"
 }
