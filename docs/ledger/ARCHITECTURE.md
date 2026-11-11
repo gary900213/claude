@@ -1,6 +1,6 @@
 # 記帳 APP 架構規劃
 
-> 狀態：規劃階段，尚未實作。確認後依「開發里程碑」逐步實作。
+> 狀態：MVP 已完成（里程碑 1–5）。
 
 ## 1. 技術選擇
 
@@ -41,15 +41,9 @@
 |---|---|---|---|
 | food | 餐飲 | 🍱 | 三餐、飲料、零食 |
 | transport | 交通 | 🚌 | 捷運、公車、加油、停車、計程車 |
-| shopping | 購物 | 🛍️ | 衣服、日用品、3C |
-| housing | 居住 | 🏠 | 房租、房貸、管理費 |
-| utilities | 水電網路 | 💡 | 水費、電費、瓦斯、手機、網路 |
-| entertainment | 娛樂 | 🎮 | 電影、遊戲、訂閱服務、旅遊 |
-| medical | 醫療 | 💊 | 看診、藥品、保健 |
-| education | 教育 | 📚 | 書籍、課程、補習 |
+| housing | 居住 | 🏠 | 房租、房貸、管理費、水電網路 |
 | social | 人情交際 | 🎁 | 聚餐請客、禮金、送禮 |
-| insurance | 保險 | 🛡️ | 壽險、醫療險、車險 |
-| other_expense | 其他支出 | 📦 | 不屬於以上的 |
+| other_expense | 其他支出 | 📦 | 購物、娛樂、醫療等不屬於以上的 |
 
 **收入**
 
@@ -98,7 +92,7 @@ IndexedDB 結構：
 | Object store | key | 索引 |
 |---|---|---|
 | `categories` | `id` | `type` |
-| `transactions` | `id` | `date`、`categoryId`、`[type, date]` |
+| `transactions` | `id` | `date`、`categoryId` |
 | `meta` | `key` | — |
 
 `schemaVersion` 用來做之後的資料升級（例如加入帳戶欄位）。
@@ -135,13 +129,16 @@ docs/ledger/
     │   └── db.js          # IndexedDB 包裝
     ├── domain/
     │   ├── stats.js       # 加總、分組、趨勢
-    │   ├── validate.js    # 輸入驗證
-    │   └── format.js      # 金額、日期格式化
+    │   ├── validate.js    # 輸入驗證（紀錄、類別、備份檔）
+    │   ├── format.js      # 金額、日期格式化
+    │   └── csv.js         # 產生 CSV
     ├── services/
     │   ├── ledger.js      # 收支 CRUD
     │   ├── categories.js  # 類別管理
     │   └── backup.js      # 匯出／匯入 JSON、CSV
     └── views/
+        ├── components.js  # 共用畫面片段、toast、HTML 跳脫
+        ├── charts.js      # <canvas> 圓環圖、長條圖
         ├── home.js        # 首頁：本月摘要＋最近紀錄
         ├── edit.js        # 新增／編輯一筆
         ├── list.js        # 月份列表、篩選、搜尋
@@ -149,9 +146,16 @@ docs/ledger/
         └── settings.js    # 類別管理、備份
 
 tests/ledger/
+├── format.test.mjs
 ├── stats.test.mjs
 └── validate.test.mjs
 ```
+
+執行測試：`node --test tests/ledger/*.test.mjs`
+
+本機預覽：`python3 -m http.server -d docs/ledger 8000`，打開 http://localhost:8000
+
+修改或新增 JS／CSS 檔案後，記得更新 `sw.js` 的 `ASSETS` 並把 `VERSION` 加 1，手機上才會換成新版。
 
 ## 7. 畫面
 
