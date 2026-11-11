@@ -13,7 +13,8 @@
 - 成本：進出各 20 bps；資金費率照實計（正 = 空頭收錢）
 - 空單 1 倍保證金：當天最高價 ≥ 進場價 × 1.9 視為爆倉，該筆虧損 100%
 - 合約下架（數據中斷）：以最後一個收盤價出場
-- 組合：每天對「所有持有中的部位」等權重
+- 組合：事件型（H1/H2/H4）資金分 10 份，每筆用當時權益 1/10、進場後不再平衡、槽位滿就略過；
+  H3 每週把權益平分給當週選到的幣
 - 市場中性版本：同時做多等量 BTC，扣掉大盤漲跌，看純選幣能力
 
 用法：python -m quant.short_alts   （先跑 python -m quant.alts_data）
@@ -57,8 +58,23 @@ class Panel:
     btc_ret: pd.Series
 
 
+def split_reused_symbols(p: pd.DataFrame) -> pd.DataFrame:
+    """停止交易超過 3 天且價格跳動超過 50% → 視為另一個合約（代號被重新使用或重新計價）。
+
+    例：MDTUSDT 2026-10 停 9 天後 +147,000%、BNXUSDT 2023-02 停 22 天後 −98%。
+    """
+    p = p.sort_values(["symbol", "date"]).copy()
+    g = p.groupby("symbol")
+    gap = g["date"].diff().dt.days
+    jump = (p["close"] / g["close"].shift() - 1).abs()
+    brk = (gap > 3) & (jump > 0.5)
+    seg = brk.astype(int).groupby(p["symbol"]).cumsum()
+    p["symbol"] = np.where(seg > 0, p["symbol"] + "#" + (seg + 1).astype(str), p["symbol"])
+    return p
+
+
 def load_panel() -> Panel:
-    p = pd.read_pickle(PANEL)
+    p = split_reused_symbols(pd.read_pickle(PANEL))
     p = p[~p["symbol"].isin(EXCLUDE - {"BTCUSDT"})]
     wide = lambda c: p.pivot_table(index="date", columns="symbol", values=c)  # noqa: E731
     close, high, qv = wide("close"), wide("high"), wide("quote_volume")
@@ -71,61 +87,88 @@ def load_panel() -> Panel:
     return Panel(close, high, adv30, funding, listed, last, btc_ret)
 
 
-def simulate(pn: Panel, entries: list[tuple[str, pd.Timestamp, int]]) -> tuple[pd.Series, pd.DataFrame]:
-    """entries：(合約, 進場日, 持有天數)。進場日收盤做空。
+SLOTS = 10  # 事件型策略：資金分成 10 份，每筆訊號用當時權益的 1/10，槽位滿了就略過
 
-    回傳 (組合每日報酬, 每筆部位明細)。部位每日報酬以「該部位前一天的權益」計。
+
+def simulate(pn: Panel, entries: list, slots: int | None = SLOTS, margin: float = 1.0):
+    """固定配置的部位模擬（不每天再平衡，貼近實際下單）。
+
+    entries：(合約, 進場日, 持有天數[, 權重])。進場日收盤做空，配置 = 當時權益 × 權重
+    （預設 1/slots）。部位之後不加碼也不減碼；爆倉歸零；下架以最後收盤價出場。
+    margin：保證金倍數。配置的資金 = margin × 空單名目，所以名目 = 配置 / margin；
+    爆倉價 ≈ 進場價 × (1 + margin × 0.9)（1 倍保證金時約 1.9 倍）。
+    回傳 (純做空每日報酬, 市場中性每日報酬, 空單曝險/權益, 每筆部位明細)。
     """
     idx = pn.close.index
-    pos_index = {d: i for i, d in enumerate(idx)}
-    daily_sum = np.zeros(len(idx))
-    daily_n = np.zeros(len(idx))
-    rows = []
-    open_until: dict[str, pd.Timestamp] = {}
-    for sym, d0, hold in sorted(entries, key=lambda x: x[1]):
-        if sym in open_until and d0 <= open_until[sym]:
-            continue  # 同一個幣已經有部位，不重複
-        i0 = pos_index[d0]
-        c = pn.close[sym].values
-        h = pn.high[sym].values
-        f = pn.funding[sym].values
-        p0 = c[i0]
-        if not np.isfinite(p0):
-            continue
-        equity = 1.0 - COST_BPS / 1e4  # 進場成本
-        daily_sum[i0] += -COST_BPS / 1e4  # 記在進場當天
-        daily_n[i0] += 1
-        exit_i, why = i0, "到期"
-        for i in range(i0 + 1, min(i0 + hold, len(idx) - 1) + 1):
-            if not np.isfinite(c[i]):
-                why = "下架"
-                break
-            prev_eq = equity
-            if np.isfinite(h[i]) and h[i] >= p0 * LIQ_MULT:
-                equity, why = 0.0, "爆倉"
-            else:
-                # 固定數量空單：權益 = 1 + (p0 − 價格)/p0 + 累計資金費率（以名目 1 計）
-                pnl_today = (c[i - 1] - c[i]) / p0 + f[i] * c[i - 1] / p0
-                equity = prev_eq + pnl_today
-            r = equity / prev_eq - 1 if prev_eq > 0 else 0.0
-            exit_i = i
-            if why == "爆倉" or equity <= 0:
-                equity, r = 0.0, -1.0
-                daily_sum[i] += r
-                daily_n[i] += 1
-                why = "爆倉"
-                break
-            daily_sum[i] += r
-            daily_n[i] += 1
-        if why != "爆倉" and equity > 0:
-            equity *= 1 - COST_BPS / 1e4
-            daily_sum[exit_i] += -COST_BPS / 1e4
-        open_until[sym] = idx[exit_i]
-        rows.append({"symbol": sym, "entry": d0, "exit": idx[exit_i], "days": exit_i - i0,
-                     "return": equity - 1, "reason": why})
-    port = pd.Series(np.where(daily_n > 0, daily_sum / np.maximum(daily_n, 1), 0.0), index=idx)
-    port.attrs["exposure"] = pd.Series(daily_n > 0, index=idx)
-    return port, pd.DataFrame(rows)
+    by_day: dict[pd.Timestamp, list] = {}
+    for e in entries:
+        by_day.setdefault(e[1], []).append(e)
+    C, H, F = pn.close, pn.high, pn.funding
+    col = {s: k for k, s in enumerate(C.columns)}
+    cv, hv, fv = C.values, H.values, F.values
+    btc = pn.btc_ret.reindex(idx).fillna(0.0).values
+    cash, open_pos, rows = 1.0, {}, []
+    eq_prev, notional_prev = 1.0, 0.0
+    r_short, r_hedged, expo = np.zeros(len(idx)), np.zeros(len(idx)), np.zeros(len(idx))
+    cost = COST_BPS / 1e4
+    liq_mult = 1 + margin * (LIQ_MULT - 1)
+
+    def close_pos(sym, i, why):
+        nonlocal cash
+        p = open_pos.pop(sym)
+        px = cv[i, col[sym]]
+        exit_notional = p["alloc"] / margin * px / p["p0"] if np.isfinite(px) else 0.0
+        final = max(p["eq"] - exit_notional * cost, 0.0) if why != "爆倉" else 0.0
+        cash += final
+        rows.append({"symbol": sym, "entry": idx[p["i0"]], "exit": idx[i], "days": i - p["i0"],
+                     "return": final / p["alloc"] - 1, "reason": why})
+
+    for i in range(len(idx)):
+        # 1) 更新持有中的部位
+        for sym in list(open_pos):
+            p, k = open_pos[sym], col[sym]
+            c, h = cv[i, k], hv[i, k]
+            if not np.isfinite(c):
+                close_pos(sym, i - 1, "下架")
+                continue
+            if np.isfinite(h) and h >= p["p0"] * liq_mult:
+                p["eq"] = 0.0
+                close_pos(sym, i, "爆倉")
+                continue
+            c_prev = cv[i - 1, k]
+            p["eq"] += p["alloc"] / margin * ((c_prev - c) / p["p0"] + fv[i, k] * c_prev / p["p0"])
+            if p["eq"] <= 0:
+                p["eq"] = 0.0
+                close_pos(sym, i, "爆倉")
+            elif i - p["i0"] >= p["hold"]:
+                close_pos(sym, i, "到期")
+        # 2) 新進場
+        equity = cash + sum(p["eq"] for p in open_pos.values())
+        for e in by_day.get(idx[i], []):
+            sym, hold = e[0], e[2]
+            w = e[3] if len(e) > 3 else 1.0 / (slots or 1)
+            if sym in open_pos or (slots and len(open_pos) >= slots):
+                continue
+            k = col.get(sym)
+            if k is None or not np.isfinite(cv[i, k]):
+                continue
+            alloc = min(equity * w, cash)
+            if alloc <= 1e-9:
+                continue
+            cash -= alloc
+            open_pos[sym] = {"alloc": alloc, "eq": alloc - alloc / margin * cost, "p0": cv[i, k], "i0": i,
+                             "hold": hold}
+        # 3) 組合權益與報酬
+        equity = cash + sum(p["eq"] for p in open_pos.values())
+        notional = sum(p["alloc"] / margin * cv[i, col[s]] / p["p0"] for s, p in open_pos.items())
+        r_short[i] = equity / eq_prev - 1 if eq_prev > 0 else 0.0
+        r_hedged[i] = r_short[i] + (notional_prev / eq_prev * btc[i] if eq_prev > 0 else 0.0)
+        expo[i] = notional / equity if equity > 0 else 0.0
+        eq_prev, notional_prev = equity, notional
+        if equity <= 1e-9:
+            break
+    s = pd.Series
+    return s(r_short, idx), s(r_hedged, idx), s(expo, idx), pd.DataFrame(rows)
 
 
 # ---------------------------------------------------------------- 假設的進場規則
@@ -165,7 +208,7 @@ def h3_rank(pn: Panel, bottom: bool, frac: float = 0.2, hold: int = 7) -> list:
             continue
         n = max(1, int(len(s) * frac))
         pick = s.nsmallest(n) if bottom else s.nlargest(n)
-        out += [(sym, d, hold) for sym in pick.index]
+        out += [(sym, d, hold, 1.0 / len(pick)) for sym in pick.index]
     return out
 
 
@@ -176,29 +219,54 @@ def h4_funding(pn: Panel, ann: float = 1.0, hold: int = 7) -> list:
 
 # ---------------------------------------------------------------- 報告
 
-def summarize(name: str, port: pd.Series, trades: pd.DataFrame, btc_ret: pd.Series) -> tuple[dict, pd.Series]:
-    active = port.attrs["exposure"]
-    start = active[active].index.min()
-    net = port.loc[start:]
-    hedged = net + active.loc[start:].astype(float) * btc_ret.reindex(net.index).fillna(0.0)
+def summarize(name: str, r_short: pd.Series, r_hedged: pd.Series, expo: pd.Series,
+              trades: pd.DataFrame) -> dict:
+    start = expo[expo > 0].index.min()
 
     def st(x):
-        r = bt.Result("", pd.DataFrame({"net": x, "pos": active.loc[start:].astype(float)}))
-        return bt.stats(r)
+        return bt.stats(bt.Result("", pd.DataFrame({"net": x.loc[start:], "pos": expo.loc[start:]})))
 
-    s, h = st(net), st(hedged)
-    years = len(net) / 365
+    s, h = st(r_short), st(r_hedged)
+    years = len(r_short.loc[start:]) / 365
     return {
         "策略": name, "期間": f"{start:%Y-%m} 起",
         "年化": f"{s['年化報酬']:+.0%}", "夏普": f"{s['夏普值']:.2f}", "最大回撤": f"{s['最大回撤']:.0%}",
         "中性 年化": f"{h['年化報酬']:+.0%}", "中性 夏普": f"{h['夏普值']:.2f}",
         "中性 回撤": f"{h['最大回撤']:.0%}",
         "筆數/年": f"{len(trades) / years:.0f}", "勝率": f"{(trades['return'] > 0).mean():.0%}",
-        "單筆中位數": f"{trades['return'].median():+.0%}",
+        "單筆平均": f"{trades['return'].mean():+.0%}", "單筆中位數": f"{trades['return'].median():+.0%}",
         "爆倉比例": f"{(trades['reason'] == '爆倉').mean():.1%}",
-        "下架比例": f"{(trades['reason'] == '下架').mean():.1%}",
-        "有持倉天數": f"{active.loc[start:].mean():.0%}",
-    }, hedged
+        "平均空單曝險": f"{expo.loc[start:].mean():.2f}x",
+    }
+
+
+def robustness(pn: Panel) -> pd.DataFrame:
+    """H1（持有 30 天）的參數鄰近測試。看過主結果後才做，屬於事後探索。"""
+    global COST_BPS
+    rows = []
+    for label, kw in [("基準：第 7 天進、持有 30 天、1 倍保證金、20 bps、10 槽", {}),
+                      ("第 5 天進場", {"day": 5}), ("第 14 天進場", {"day": 14}),
+                      ("持有 20 天", {"hold": 20}), ("持有 45 天", {"hold": 45}), ("持有 60 天", {"hold": 60}),
+                      ("2 倍保證金（本金加倍、約漲 2.8 倍才爆倉）", {"margin": 2.0}),
+                      ("成本 40 bps", {"cost": 40.0}), ("5 槽", {"slots": 5}), ("20 槽", {"slots": 20})]:
+        old_cost = COST_BPS
+        COST_BPS = kw.get("cost", COST_BPS)
+        try:
+            entries = h1_new_listing(pn, kw.get("hold", 30), kw.get("day", 7))
+            _, rh, ex, tr = simulate(pn, entries, kw.get("slots", SLOTS), kw.get("margin", 1.0))
+        finally:
+            COST_BPS = old_cost
+        start = ex[ex > 0].index.min()
+        eq = (1 + rh.loc[start:]).cumprod()
+        liq = f"{(tr['reason'] == '爆倉').mean():.0%}"
+        if (eq <= 0.01).any():
+            rows.append((label, "賠光", "—", "-100%", f"{eq[eq <= 0.01].index.min():%Y-%m}", liq))
+            continue
+        st = bt.stats(bt.Result("", pd.DataFrame({"net": rh.loc[start:], "pos": ex.loc[start:]})))
+        dd = eq / eq.cummax() - 1
+        rows.append((label, f"{st['年化報酬']:+.0%}", f"{st['夏普值']:.2f}", f"{st['最大回撤']:.0%}",
+                     f"{dd.idxmin():%Y-%m}", liq))
+    return pd.DataFrame(rows, columns=["設定", "中性年化", "中性夏普", "最大回撤", "最深回撤時點", "爆倉比例"])
 
 
 def main() -> int:
@@ -215,12 +283,13 @@ def main() -> int:
     }
     rows, curves, yearly, all_trades = [], {}, {}, {}
     for name, entries in tests.items():
-        port, trades = simulate(pn, entries)
+        r_short, r_hedged, expo, trades = simulate(pn, entries, None if name.startswith("H3") else SLOTS)
         if trades.empty:
             continue
-        row, hedged = summarize(name, port, trades, pn.btc_ret)
-        rows.append(row)
-        curves[name] = (1 + port.loc[hedged.index]).cumprod(), (1 + hedged).cumprod()
+        rows.append(summarize(name, r_short, r_hedged, expo, trades))
+        start = expo[expo > 0].index.min()
+        hedged = r_hedged.loc[start:]
+        curves[name] = (1 + r_short.loc[start:]).cumprod(), (1 + hedged).cumprod()
         yearly[name] = (1 + hedged).groupby(hedged.index.year).prod() - 1
         all_trades[name] = trades
     table = pd.DataFrame(rows)
@@ -291,6 +360,13 @@ def main() -> int:
         "## 各年度（市場中性）",
         "",
         yr.to_markdown(),
+        "",
+        "## H1（持有 30 天）參數鄰近測試（事後探索，只能當參考）",
+        "",
+        "看過上面結果後，才針對唯一看起來有效的 H1-30 天做的檢查：數字在鄰近參數間差很多、"
+        "或最差時點集中在某段期間，都代表要小心。",
+        "",
+        robustness(pn).to_markdown(index=False),
         "",
         "## H1（持有 90 天）最慘的幾筆：做空的尾部風險",
         "",
