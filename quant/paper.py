@@ -176,6 +176,33 @@ def order_instructions(sig: pd.DataFrame, pos: pd.Series, latest: dict, now: pd.
     return out
 
 
+NOTIFY_DIR = ROOT / "out" / "notifications"  # 不進 git；quant.notify 讀取後寄信
+
+
+def change_event(sig: pd.DataFrame, pos: pd.Series, now: pd.Timestamp) -> dict | None:
+    """這次執行新增的訊號是否造成今天換倉；是的話回傳事件內容，否則 None。
+
+    只看「這次執行才寫入」的訊號（generated_at == now），所以一天跑好幾次也只會通知一次。
+    """
+    if sig.empty or pos.empty:
+        return None
+    last = sig.iloc[-1]
+    if pd.Timestamp(last["generated_at_utc"]) != now:
+        return None
+    today = now.normalize()
+    if today not in pos.index:
+        return None
+    prev = float(pos.shift(1).fillna(0.0).loc[today])
+    new = float(pos.loc[today])
+    if abs(new - prev) < 1e-9:
+        return None
+    return {"signal_date": f"{pd.Timestamp(last['signal_date']):%Y-%m-%d}", "from": round(prev, 4),
+            "to": round(new, 4), "action": "買入" if new > prev else "賣出",
+            "close": float(last["close"]), "trend": float(last["trend"]),
+            "ls_z90": float(last["ls_z90"]), "oi_z90": float(last["oi_z90"]),
+            "filter_ls": bool(last["filter_ls"]), "filter_oi": bool(last["filter_oi"])}
+
+
 def main(live: bool = False, capital: float | None = None, version: str = "v1") -> int:
     """live=True：用幣安即時 API 補最新數據（由 quant.live 呼叫）。
 
@@ -300,6 +327,15 @@ def main(live: bool = False, capital: float | None = None, version: str = "v1") 
                      f"建議倉位會是 {pv['target_pos']:.2f}（趨勢 {pv['trend']:+.2f}，散戶 z {pv['ls_z90']:.2f}，"
                      f"持倉量 z {pv['oi_z90']:.2f}）")
     lines += ["", "## 下單指示", ""] + order_instructions(sig, pos, latest, now, capital)
+    event = change_event(sig, pos, now)
+    if event:
+        event.update({"version": version, "strategy": STRATEGY["version"],
+                      "mode": "live" if live else "archive", "capital": capital,
+                      "report": str(DOCS.relative_to(ROOT) / "README.md")})
+        NOTIFY_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{version}-{event['mode']}-{event['signal_date']}.json"
+        (NOTIFY_DIR / name).write_text(json.dumps(event, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"[paper] 換倉：{event['action']} {event['from']:.2f} → {event['to']:.2f}（已排入通知）")
     lines += ["", "## 紙上交易績效", ""]
     lines += perf_lines or ["- 還沒有可以結算的日子（下單後要等下一個交易日的收盤價）"]
     if perf_lines:

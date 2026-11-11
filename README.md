@@ -32,6 +32,19 @@
 > GitHub Actions 的機器在美國，Binance 會回 451 拒絕連線；程式會自動改用 OKX，所以不用處理。
 > 如果某個來源暫時失敗，報告頁的「資料狀態」會標示 ❌，其他圖照常更新。
 
+### 換倉寄信通知
+
+紙上交易換倉（v1、v2 各自）時，GitHub Actions 會寄信給你；每日流程失敗也會寄信。設定一次即可：
+
+1. Google 帳戶 → 安全性 → 開啟「兩步驟驗證」→ 搜尋「應用程式密碼」，建立一組（16 碼）。
+2. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**，新增三個：
+   - `SMTP_USER`：你的 Gmail 地址
+   - `SMTP_PASSWORD`：剛建立的 16 碼應用程式密碼
+   - `MAIL_TO`：收件信箱（可用逗號分隔多個）
+3. **Actions → BTC daily report → Run workflow**，勾選「寄一封測試信」，確認收得到。
+
+信箱和密碼只存在 GitHub Secrets，不會出現在程式碼或 repo 裡。沒設定時，流程照常執行，只是不寄信。
+
 ## 在自己電腦上跑
 
 ```bash
