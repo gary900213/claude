@@ -9,6 +9,9 @@ import {
 } from '../services/categories.js';
 import { getAllTransactions } from '../services/ledger.js';
 import { exportCSV, exportJSON, getLastExportAt, importJSON } from '../services/backup.js';
+import { getBudgets } from '../services/budget.js';
+import { generateDue, listRules } from '../services/recurring.js';
+import { formatAmount } from '../domain/format.js';
 import { countByCategory } from '../domain/stats.js';
 import { ValidationError } from '../domain/validate.js';
 import { emptyState, esc, toast } from './components.js';
@@ -20,6 +23,19 @@ let tab = 'expense';
 export async function render(el) {
   el.innerHTML = `
     <header class="page-head"><h1>設定</h1></header>
+
+    <nav class="card menu" aria-label="進階功能">
+      <a class="menu-row" href="#/budget">
+        <span class="cat-icon" aria-hidden="true">🎯</span>
+        <span class="cat-row-name">每月預算<small data-budget-info></small></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </a>
+      <a class="menu-row" href="#/recurring">
+        <span class="cat-icon" aria-hidden="true">🔁</span>
+        <span class="cat-row-name">固定收支<small data-recurring-info></small></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </a>
+    </nav>
 
     <section class="card">
       <div class="section-head"><h2>類別管理</h2></div>
@@ -67,11 +83,23 @@ export async function render(el) {
   let editing = null; // 正在編輯的類別；null = 新增
 
   async function refresh() {
-    const [allCats, txs, lastExport] = await Promise.all([
+    const [allCats, txs, lastExport, budgets, rules] = await Promise.all([
       listCategories({ includeHidden: true }),
       getAllTransactions(),
       getLastExportAt(),
+      getBudgets(),
+      listRules(),
     ]);
+    const total = budgets.find((b) => b.id === 'total');
+    el.querySelector('[data-budget-info]').textContent = total
+      ? `每月 ${formatAmount(total.amount)}`
+      : budgets.length
+        ? `${budgets.length} 個類別有預算`
+        : '尚未設定';
+    const active = rules.filter((r) => r.active).length;
+    el.querySelector('[data-recurring-info]').textContent = rules.length
+      ? `${active} 個啟用中${rules.length > active ? `、${rules.length - active} 個暫停` : ''}`
+      : '尚未設定';
     cats = allCats;
     counts = countByCategory(txs);
     el.querySelector('[data-backup-info]').textContent =
@@ -185,10 +213,11 @@ export async function render(el) {
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
-    if (!confirm('匯入會「取代」目前所有的類別和紀錄，確定要繼續嗎？\n建議先匯出一份目前的備份。')) return;
+    if (!confirm('匯入會「取代」目前所有的類別、紀錄、預算和固定收支，確定要繼續嗎？\n建議先匯出一份目前的備份。')) return;
     await act(async () => {
       const r = await importJSON(await file.text());
-      toast(`已匯入 ${r.transactions} 筆紀錄、${r.categories} 個類別`);
+      await generateDue();
+      toast(`已匯入 ${r.transactions} 筆紀錄、${r.categories} 個類別${r.recurring ? `、${r.recurring} 個固定收支` : ''}`);
     });
   });
 

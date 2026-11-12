@@ -4,7 +4,9 @@ import { listCategories } from '../services/categories.js';
 import { todayStr } from '../domain/format.js';
 import { MAX_NOTE, ValidationError } from '../domain/validate.js';
 import { goBack } from '../router.js';
-import { emptyState, esc, toast } from './components.js';
+import { categoryGrid, emptyState, esc, subHeader, toast } from './components.js';
+
+export const fullscreen = true;
 
 // 記住支出、收入各自上一次用的類別，連續記帳比較快
 const lastCategory = { expense: null, income: null };
@@ -13,7 +15,7 @@ export async function render(el, ctx) {
   const isEdit = ctx.name === 'edit';
   const tx = isEdit ? await getTransaction(ctx.param) : null;
   if (isEdit && !tx) {
-    el.innerHTML = `${header('編輯紀錄')}${emptyState('找不到這筆紀錄，可能已經被刪除')}`;
+    el.innerHTML = `${subHeader('編輯紀錄')}${emptyState('找不到這筆紀錄，可能已經被刪除')}`;
     bindBack(el);
     return;
   }
@@ -27,7 +29,7 @@ export async function render(el, ctx) {
   if (!state.categoryId) state.categoryId = lastCategory[state.type];
 
   el.innerHTML = `
-    ${header(isEdit ? '編輯紀錄' : '記一筆')}
+    ${subHeader(isEdit ? '編輯紀錄' : '記一筆')}
     <form class="edit-form" novalidate>
       <div class="segmented" role="radiogroup" aria-label="收支類型">
         <button type="button" role="radio" data-type="expense">支出</button>
@@ -72,18 +74,7 @@ export async function render(el, ctx) {
     // 隱藏的類別不顯示，但正在編輯的紀錄用的類別要留著
     const cats = allCats.filter((c) => c.type === state.type && (!c.hidden || c.id === tx?.categoryId));
     if (!cats.some((c) => c.id === state.categoryId)) state.categoryId = cats[0]?.id ?? null;
-    grid.innerHTML = cats.length
-      ? cats
-          .map(
-            (c) => `
-          <button type="button" class="cat" role="radio" data-cat="${esc(c.id)}"
-                  aria-checked="${c.id === state.categoryId}">
-            <span class="cat-icon" aria-hidden="true">${esc(c.icon)}</span>
-            <span class="cat-name">${esc(c.name)}</span>
-          </button>`,
-          )
-          .join('')
-      : '<p class="muted">沒有可用的類別，請到「設定」新增</p>';
+    grid.innerHTML = categoryGrid(cats, state.categoryId);
   }
 
   function showErrors(errors = {}) {
@@ -147,12 +138,6 @@ export async function render(el, ctx) {
   paint();
   if (!isEdit) return () => amountInput.focus();
 }
-
-const header = (title) => `
-  <header class="page-head with-back">
-    <button class="icon-btn" type="button" data-act="back" aria-label="返回">‹</button>
-    <h1>${title}</h1>
-  </header>`;
 
 function bindBack(el) {
   el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#/'));

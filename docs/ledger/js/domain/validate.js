@@ -4,6 +4,7 @@ export const MAX_AMOUNT = 999_999_999;
 export const MAX_NOTE = 100;
 export const MAX_CATEGORY_NAME = 8;
 export const TYPES = ['expense', 'income'];
+export const BUDGET_TOTAL_ID = 'total';
 
 export class ValidationError extends Error {
   constructor(errors) {
@@ -76,6 +77,34 @@ export function validateCategory(input, categories, selfId = null) {
   return { ok, errors, value: ok ? { type: input.type, name, icon } : null };
 }
 
+/** 固定收支規則：金額、類別、備註沿用紀錄的檢查，另外檢查日期與開始月份 */
+export function validateRecurring(input, categories) {
+  const base = validateTransaction({ ...input, date: '2000-01-01' }, categories);
+  const errors = { ...base.errors };
+  const day = Number(input.day);
+  if (!Number.isInteger(day) || day < 1 || day > 31) errors.day = '請選擇每月幾號';
+  if (!isMonth(input.startMonth)) errors.startMonth = '請選擇開始月份';
+  const ok = Object.keys(errors).length === 0;
+  if (!ok) return { ok, errors, value: null };
+  const { type, amount, categoryId, note } = base.value;
+  return {
+    ok,
+    errors,
+    value: { type, amount, categoryId, note, day, startMonth: input.startMonth, active: input.active !== false },
+  };
+}
+
+/** 預算金額：空白或 0 代表不設定 */
+export function parseBudgetAmount(v) {
+  if (v === '' || v == null) return { ok: true, amount: 0 };
+  const amount = parseAmount(v);
+  if (!Number.isInteger(amount) || amount < 0) return { ok: false, error: '請輸入整數金額' };
+  if (amount > MAX_AMOUNT) return { ok: false, error: '金額太大了' };
+  return { ok: true, amount };
+}
+
+const isMonth = (s) => typeof s === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
+
 /**
  * 檢查備份檔內容。成功時回傳整理過的資料（只保留認得的欄位）。
  */
@@ -112,10 +141,29 @@ export function validateBackup(data) {
     transactions.push({
       id: t.id,
       ...v.value,
+      ...(typeof t.recurringId === 'string' ? { recurringId: t.recurringId } : {}),
       createdAt,
       updatedAt: Number.isFinite(t.updatedAt) ? t.updatedAt : createdAt,
     });
   }
 
-  return { ok: true, error: null, value: { categories, transactions } };
+  const budgets = [];
+  for (const b of data.budgets ?? []) {
+    const known = b && (b.id === BUDGET_TOTAL_ID || categories.some((c) => c.id === b.id && c.type === 'expense'));
+    const r = parseBudgetAmount(b?.amount);
+    if (!known || !r.ok) return fail(`預算資料有問題（${b?.id ?? '?'}）`);
+    if (r.amount > 0) budgets.push({ id: b.id, amount: r.amount });
+  }
+
+  const recurring = [];
+  const ruleIds = new Set();
+  for (const [i, r] of (data.recurring ?? []).entries()) {
+    if (!r || typeof r.id !== 'string' || !r.id || ruleIds.has(r.id)) return fail(`第 ${i + 1} 個固定收支的 id 有問題`);
+    const v = validateRecurring(r, categories);
+    if (!v.ok) return fail(`固定收支「${r.note || i + 1}」：${Object.values(v.errors)[0]}`);
+    ruleIds.add(r.id);
+    recurring.push({ id: r.id, ...v.value, lastGenerated: isMonth(r.lastGenerated) ? r.lastGenerated : null });
+  }
+
+  return { ok: true, error: null, value: { categories, transactions, budgets, recurring } };
 }

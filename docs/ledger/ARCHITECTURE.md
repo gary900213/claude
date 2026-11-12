@@ -1,6 +1,6 @@
 # 記帳 APP 架構規劃
 
-> 狀態：MVP 已完成（里程碑 1–5）。
+> 狀態：MVP 已完成（里程碑 1–5），第二版加入每月預算與固定收支（里程碑 6）。
 
 ## 1. 技術選擇
 
@@ -27,11 +27,14 @@
 - 統計：本月各類別支出佔比（圓餅圖）、近 6 個月收支趨勢（長條圖）
 - 備份：匯出／匯入 JSON、匯出 CSV（可用 Excel 開）
 
+**第二版（已完成）**
+- 每月預算：總預算＋各支出類別預算，首頁顯示使用進度、剩餘金額、每天平均還能花多少，80% 以上變橘色、超過變紅色
+- 固定收支：每月固定日期（沒有這天就用月底），開啟 App 時自動記入到期的紀錄，最多往回補 24 個月；可暫停、可刪除（已記入的保留）
+- 深色模式（跟隨系統）
+
 **之後再做**
 - 帳戶（現金／銀行／信用卡）與轉帳
-- 每月預算與超支提醒
-- 固定收支（房租、訂閱自動產生）
-- 深色模式、多幣別
+- 多幣別、跨裝置同步
 
 ## 3. 預設類別
 
@@ -83,8 +86,28 @@
   updatedAt: 1762646400000
 }
 
+// Transaction 由固定收支產生時，多一個欄位
+{ ..., recurringId: "uuid" }
+
+// Budget（v2）：每個月套用同一份；amount 為 0 的不存
+{ id: "total" | "<支出類別 id>", amount: 30000 }
+
+// RecurringRule（v2）
+{
+  id: "uuid",
+  type: "expense",
+  amount: 15000,
+  categoryId: "housing",
+  note: "房租",
+  day: 5,                  // 每月幾號，1~31；該月沒有這天就用月底
+  startMonth: "2026-12",   // 從哪個月開始
+  lastGenerated: "2026-11",// 已經產生到哪個月（null = 還沒產生過）
+  active: true
+}
+
 // Meta（單筆設定）
 { key: "schemaVersion", value: 1 }
+{ key: "lastExportAt", value: 1762646400000 }
 ```
 
 IndexedDB 結構：
@@ -94,6 +117,14 @@ IndexedDB 結構：
 | `categories` | `id` | `type` |
 | `transactions` | `id` | `date`、`categoryId` |
 | `meta` | `key` | — |
+| `budgets`（v2） | `id` | — |
+| `recurring`（v2） | `id` | — |
+
+資料庫版本（`DB_VERSION`）目前是 2。升級時只新增資料表，舊資料不動。
+
+固定收支在 `services/recurring.js` 的 `generateDue()` 產生：讀規則、寫紀錄、更新 `lastGenerated` 在同一個 IndexedDB 交易裡，同時開兩個分頁也不會重複記入。觸發時機：App 開啟、從背景切回前景、儲存固定收支、匯入備份。
+
+備份檔 `version: 2` 起包含 `budgets` 和 `recurring`；匯入時仍接受 v1 備份。
 
 `schemaVersion` 用來做之後的資料升級（例如加入帳戶欄位）。
 
@@ -131,10 +162,14 @@ docs/ledger/
     │   ├── stats.js       # 加總、分組、趨勢
     │   ├── validate.js    # 輸入驗證（紀錄、類別、備份檔）
     │   ├── format.js      # 金額、日期格式化
-    │   └── csv.js         # 產生 CSV
+    │   ├── csv.js         # 產生 CSV
+    │   ├── budget.js      # 預算使用狀況
+    │   └── recurring.js   # 固定收支的到期日計算
     ├── services/
     │   ├── ledger.js      # 收支 CRUD
     │   ├── categories.js  # 類別管理
+    │   ├── budget.js      # 預算讀寫
+    │   ├── recurring.js   # 固定收支規則、自動記入
     │   └── backup.js      # 匯出／匯入 JSON、CSV
     └── views/
         ├── components.js  # 共用畫面片段、toast、HTML 跳脫
@@ -143,9 +178,13 @@ docs/ledger/
         ├── edit.js        # 新增／編輯一筆
         ├── list.js        # 月份列表、篩選、搜尋
         ├── stats.js       # 圖表（用 <canvas> 自己畫，不引入圖表套件）
-        └── settings.js    # 類別管理、備份
+        ├── settings.js    # 類別管理、備份、進階功能選單
+        ├── budget.js      # 每月預算（#/budget）
+        └── recurring.js   # 固定收支列表與表單（#/recurring）
 
 tests/ledger/
+├── budget.test.mjs
+├── recurring.test.mjs
 ├── format.test.mjs
 ├── stats.test.mjs
 └── validate.test.mjs
@@ -174,3 +213,4 @@ tests/ledger/
 3. **統計**：圓餅圖、趨勢圖
 4. **設定與備份**：類別管理、匯出匯入
 5. **PWA**：manifest、Service Worker、圖示，手機可安裝、可離線
+6. **預算與固定收支**：資料庫升到 v2、每月預算、固定收支自動記入、備份格式 v2

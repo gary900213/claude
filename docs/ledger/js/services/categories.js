@@ -63,5 +63,8 @@ export async function moveCategory(id, dir) {
 export async function deleteCategory(id) {
   const n = await db.countByIndex('transactions', 'categoryId', id);
   if (n > 0) throw new Error(`這個類別還有 ${n} 筆紀錄，不能刪除，可以改成隱藏`);
+  const rules = (await db.getAll('recurring')).filter((r) => r.categoryId === id);
+  if (rules.length) throw new Error(`有 ${rules.length} 個固定收支使用這個類別，請先修改或刪除`);
   await db.remove('categories', id);
+  await db.remove('budgets', id);
 }

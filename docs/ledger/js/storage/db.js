@@ -2,8 +2,9 @@
 // 之後要換成雲端儲存，只需要改這一層。
 
 const DB_NAME = 'ledger';
-const DB_VERSION = 1;
-const DATA_STORES = ['categories', 'transactions'];
+const DB_VERSION = 2;
+// 備份／匯入涵蓋的資料表
+export const DATA_STORES = ['categories', 'transactions', 'budgets', 'recurring'];
 
 let dbPromise = null;
 
@@ -24,8 +25,23 @@ export function openDB() {
         if (!db.objectStoreNames.contains('meta')) {
           db.createObjectStore('meta', { keyPath: 'key' });
         }
+        // v2：每月預算、固定收支
+        if (!db.objectStoreNames.contains('budgets')) {
+          db.createObjectStore('budgets', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('recurring')) {
+          db.createObjectStore('recurring', { keyPath: 'id' });
+        }
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        const db = req.result;
+        // 其他分頁要升級資料庫時，讓出連線，避免卡住
+        db.onversionchange = () => {
+          db.close();
+          dbPromise = null;
+        };
+        resolve(db);
+      };
       req.onerror = () => reject(req.error);
       req.onblocked = () => reject(new Error('資料庫被其他分頁占用，請關閉其他記帳本分頁後重新整理'));
     });
@@ -40,7 +56,7 @@ export function openDB() {
  * 在一個交易中執行 fn。fn 回傳 IDBRequest 時，結果是該 request 的 result。
  * 等交易真正完成（資料寫入）後才 resolve。
  */
-async function run(stores, mode, fn) {
+export async function run(stores, mode, fn) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const t = db.transaction(stores, mode);
@@ -91,15 +107,22 @@ export const countByIndex = (store, index, key) =>
   run(store, 'readonly', (t) => t.objectStore(store).index(index).count(key));
 
 /** 用一個交易清空並寫入全部資料（匯入備份用），失敗時整批還原 */
-export const replaceAll = ({ categories, transactions }) =>
+export const replaceAll = (data) =>
   run([...DATA_STORES, 'meta'], 'readwrite', (t) => {
-    const data = { categories, transactions };
     for (const name of DATA_STORES) {
       const s = t.objectStore(name);
       s.clear();
-      for (const v of data[name]) s.put(v);
+      for (const v of data[name] ?? []) s.put(v);
     }
     t.objectStore('meta').put({ key: 'initialized', value: true });
+  });
+
+/** 一個交易內清空某個資料表再寫入（例如整份預算一起儲存） */
+export const replaceStore = (store, values) =>
+  run(store, 'readwrite', (t) => {
+    const s = t.objectStore(store);
+    s.clear();
+    for (const v of values) s.put(v);
   });
 
 /** 第一次啟動時寫入預設類別（同一個交易，不會寫一半） */

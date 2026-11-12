@@ -10,6 +10,7 @@
   --income: #16a34a;
   --expense: #dc2626;
   --danger: #dc2626;
+  --warn: #d97706;
   --shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 2px 8px rgb(15 23 42 / 4%);
   --radius: 14px;
   --tabbar-h: 60px;
@@ -29,6 +30,7 @@
     --income: #4ade80;
     --expense: #f87171;
     --danger: #f87171;
+    --warn: #fbbf24;
     --shadow: none;
     color-scheme: dark;
   }
@@ -247,6 +249,62 @@ h1, h2, h3 { margin: 0; }
   background: var(--bg); font-size: 1.2rem; cursor: pointer;
 }
 
+/* ---------- 標籤 ---------- */
+.badge {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px;
+  font-size: .7rem; font-weight: 600; line-height: 1.6; vertical-align: 2px;
+  background: var(--primary-soft); color: var(--primary);
+}
+.badge.over { background: var(--expense); color: #fff; }
+
+/* ---------- 預算 ---------- */
+.progress { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.progress i { display: block; height: 100%; border-radius: 4px; background: var(--primary); }
+.progress.warn i { background: var(--warn); }
+.progress.over i { background: var(--expense); }
+.budget-line { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.budget-line strong { font-variant-numeric: tabular-nums; }
+.budget-line .muted { font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.budget-note { margin: 6px 0 0; font-size: .85rem; color: var(--muted); }
+.budget-note.warn { color: var(--warn); }
+.budget-note.over { color: var(--expense); font-weight: 600; }
+.budget-rows { list-style: none; margin: 12px 0 0; padding: 0; }
+.budget-rows li { padding: 8px 0; }
+.budget-total + .budget-rows { border-top: 1px solid var(--line); }
+.budget-rows li + li { border-top: 1px solid var(--line); }
+
+.budget-form .section-head:not(:first-child) { margin-top: 16px; }
+.budget-input { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.budget-input-name { display: flex; align-items: center; gap: 10px; }
+.money-input {
+  display: flex; align-items: center; gap: 4px; width: 150px; flex: none;
+  padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+}
+.money-input:focus-within { outline: 2px solid var(--primary); outline-offset: -1px; }
+.money-input span { color: var(--muted); }
+.money-input input {
+  width: 100%; min-height: 42px; border: 0; outline: 0; background: transparent;
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+.link-card { display: flex; justify-content: space-between; align-items: center; color: var(--text); }
+.link-card span:last-child { color: var(--muted); font-size: 1.3rem; }
+
+/* ---------- 設定選單、固定收支 ---------- */
+.menu { padding-top: 4px; padding-bottom: 4px; }
+.menu-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; color: var(--text); }
+.menu-row + .menu-row { border-top: 1px solid var(--line); }
+.chev { color: var(--muted); font-size: 1.3rem; }
+.tx.is-off { opacity: .5; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field select, .field input[type="month"] {
+  width: 100%; min-height: 44px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+}
+.switch-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.switch-row input { width: 20px; height: 20px; accent-color: var(--primary); }
+
 /* ---------- 底部選單與浮動按鈕 ---------- */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
@@ -273,10 +331,11 @@ h1, h2, h3 { margin: 0; }
 }
 .fab svg { width: 28px; height: 28px; stroke-width: 2.5; }
 
-/* 新增／編輯畫面不顯示底部選單和浮動按鈕 */
-body[data-route="add"] .tabbar, body[data-route="edit"] .tabbar,
-body[data-route="add"] .fab, body[data-route="edit"] .fab { display: none; }
-body[data-route="add"] .view, body[data-route="edit"] .view { padding-bottom: calc(var(--safe-bottom) + 32px); }
+/* 表單頁（記一筆、編輯、固定收支表單）不顯示底部選單和浮動按鈕 */
+body.fullscreen .tabbar, body.fullscreen .fab { display: none; }
+body.fullscreen .view { padding-bottom: calc(var(--safe-bottom) + 32px); }
+/* 預算、固定收支頁面不需要浮動按鈕 */
+body:has(.page-budget, .page-recurring) .fab { display: none; }
 
 .toast {
   position: fixed; left: 50%; z-index: 20;
