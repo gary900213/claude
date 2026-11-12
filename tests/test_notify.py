@@ -80,3 +80,17 @@ def test_check_changes_reports_recent_change(tmp_path, monkeypatch):
     v1 = out["versions"]["v1"]
     assert v1["held_pos"] == 0.9
     assert v1["changes"] == [{"date": "2026-11-11", "from": 0.0, "to": 0.9}]
+
+
+def test_vol_alert_conditions():
+    from quant.check_changes import vol_alert
+    idx = pd.date_range("2026-01-01", periods=200, freq="D", tz="UTC")
+    calm_iv = pd.Series(0.40, index=idx)
+    flat = pd.Series(80000.0, index=idx[-10:])
+    assert vol_alert(btc=flat, dvol=calm_iv)["triggered"] is False
+    crash = flat.copy()
+    crash.iloc[-1] = 64000.0  # 7 天 −20%
+    spike = calm_iv.copy()
+    spike.iloc[-1] = 0.70     # 7 天 +30 點、且是歷史最高
+    out = vol_alert(btc=crash, dvol=spike)
+    assert out["triggered"] and len(out["reasons"]) == 3 and "13 次獨立事件" in out["note"]

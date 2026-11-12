@@ -50,6 +50,15 @@ BLUE, ORANGE, AQUA, RED, TEXT_2 = "#2a78d6", "#eb6834", "#1baf7a", "#e34948", "#
 
 # ---------------------------------------------------------------- 數據
 
+def fetch_dvol_since(start: pd.Timestamp) -> pd.Series:
+    """最近一段 DVOL（日線，含今天到目前為止的值）。"""
+    r = requests.get(DERIBIT, params={"currency": "BTC", "start_timestamp": int(start.timestamp() * 1000),
+                                      "end_timestamp": 1_900_000_000_000, "resolution": "1D"}, timeout=30)
+    r.raise_for_status()
+    df = pd.DataFrame(r.json()["result"]["data"], columns=["ts", "open", "high", "low", "close"])
+    return pd.Series(df["close"].values / 100, index=pd.to_datetime(df["ts"], unit="ms", utc=True)).sort_index()
+
+
 def fetch_dvol() -> pd.Series:
     rows, end = [], 1_900_000_000_000
     while True:
