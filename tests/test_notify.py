@@ -63,3 +63,20 @@ def test_config_requires_all_three(monkeypatch):
     monkeypatch.setenv("SMTP_PASSWORD", "x")
     monkeypatch.setenv("MAIL_TO", "b@example.com, c@example.com")
     assert notify.config()["to"] == ["b@example.com", "c@example.com"]
+
+
+def test_check_changes_reports_recent_change(tmp_path, monkeypatch):
+    from quant import check_changes
+    (tmp_path / "data" / "paper").mkdir(parents=True)
+    sig = pd.DataFrame({"signal_date": ["2026-11-09", "2026-11-10"],
+                        "generated_at_utc": ["2026-11-10 07:00", "2026-11-11 07:00"],
+                        "strategy": "v1", "close": [80000, 82000], "trend": [-0.3, 0.33],
+                        "vol_scale": [1.0, 1.0], "ls_z90": [0.0, 0.0], "oi_z90": [0.0, 0.0],
+                        "filter_ls": False, "filter_oi": False, "target_pos": [0.0, 0.9],
+                        "source": "archive"})
+    sig.to_csv(tmp_path / "data" / "paper" / "signals.csv", index=False)
+    monkeypatch.setattr(paper, "ROOT", tmp_path)
+    out = check_changes.check(days=2, now=pd.Timestamp("2026-11-11 12:00", tz="UTC"))
+    v1 = out["versions"]["v1"]
+    assert v1["held_pos"] == 0.9
+    assert v1["changes"] == [{"date": "2026-11-11", "from": 0.0, "to": 0.9}]

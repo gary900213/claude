@@ -32,9 +32,9 @@
 > GitHub Actions 的機器在美國，Binance 會回 451 拒絕連線；程式會自動改用 OKX，所以不用處理。
 > 如果某個來源暫時失敗，報告頁的「資料狀態」會標示 ❌，其他圖照常更新。
 
-### 換倉寄信通知
+### 換倉寄信通知（目前未啟用）
 
-紙上交易換倉（v1、v2 各自）時，GitHub Actions 會寄信給你；每日流程失敗也會寄信。設定一次即可：
+目前改由 Claude 的每日排程在對話中通知換倉（`python -m quant.check_changes`）。寄信程式 `quant/notify.py` 保留備用；要啟用時，把 notify 步驟加回 workflow，並設定：
 
 1. Google 帳戶 → 安全性 → 開啟「兩步驟驗證」→ 搜尋「應用程式密碼」，建立一組（16 碼）。
 2. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**，新增三個：

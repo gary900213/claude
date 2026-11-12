@@ -5,12 +5,7 @@ on:
     # 每 6 小時一次（UTC）。台灣時間約 01:17 / 07:17 / 13:17 / 19:17。
     # 多跑幾次是為了把 OKX 清算單接成完整的一天，以及抓到美股收盤後的 ETF 數據。
     - cron: "17 */6 * * *"
-  workflow_dispatch:
-    inputs:
-      test_email:
-        description: "寄一封測試信（確認 Email 設定）"
-        type: boolean
-        default: false
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -71,27 +66,3 @@ jobs:
           git commit -m "chore: BTC daily update $(date -u +'%Y-%m-%d %H:%M') UTC"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
-
-      # 換倉通知：放在 commit 之後，避免推送失敗重跑時重複寄信
-      - name: Email on position change
-        env:
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python -m quant.notify
-
-      - name: Test email
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_email }}
-        env:
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python -m quant.notify --test
-
-      - name: Email on failure
-        if: ${{ failure() }}
-        env:
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python -m quant.notify --failure
