@@ -1,15 +1,15 @@
 {
-  "signal_date": "2026-11-14",
-  "generated_at_utc": "2026-11-15 18:51",
+  "signal_date": "2026-11-15",
+  "generated_at_utc": "2026-11-16 22:00",
   "target_pos": 0.0,
-  "close": 64130.5,
-  "trend": -0.333333,
-  "vol_scale": 1.0643,
-  "ls_z90": 2.236,
-  "oi_z90": -0.357,
+  "close": 65309.8,
+  "trend": -0.3333333333333333,
+  "vol_scale": 0.9833,
+  "ls_z90": 2.109,
+  "oi_z90": -1.12,
   "reasons_flat": [
     "趨勢分數 ≤ 0（不做多）",
-    "散戶多空比 z = 2.24 > 1（過度看多）"
+    "散戶多空比 z = 2.11 > 1（過度看多）"
   ],
   "strategy": {
     "trend_lookbacks": [
