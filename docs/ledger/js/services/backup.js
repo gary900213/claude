@@ -3,6 +3,7 @@ import * as db from '../storage/db.js';
 import { validateBackup } from '../domain/validate.js';
 import { buildCSV } from '../domain/csv.js';
 import { todayStr } from '../domain/format.js';
+import { PREVIEW } from '../config.js';
 
 export const BACKUP_VERSION = 2; // v2 起包含預算與固定收支；匯入仍接受 v1
 
@@ -12,6 +13,7 @@ async function loadAll() {
 }
 
 function download(filename, content, mime) {
+  if (PREVIEW) throw new Error('預覽頁不能下載檔案，正式網站上就可以匯出');
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
   const a = document.createElement('a');
   a.href = url;

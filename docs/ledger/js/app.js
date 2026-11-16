@@ -2,7 +2,41 @@
 import { ensureDefaults } from './services/categories.js';
 import { generateDue } from './services/recurring.js';
 import { refresh, startRouter } from './router.js';
-import { esc, toast } from './views/components.js';
+import { confirmDialog, esc, toast } from './views/components.js';
+import { PREVIEW } from './config.js';
+import { clearAllData, loadSample, loadSampleOnce } from './services/preview.js';
+
+/** 預覽版：頁面最上方的說明列，可以清空或放回範例資料 */
+function mountPreviewBar(view) {
+  const wrap = document.createElement('div');
+  wrap.className = 'preview-wrap';
+  wrap.innerHTML = `
+    <div class="preview-bar" role="note">
+      <span>預覽版：目前是範例資料，只存在你的瀏覽器裡，可以隨意新增、修改、刪除試試看。</span>
+      <span class="btn-row">
+        <button class="btn small" type="button" data-preview="clear">清空資料</button>
+        <button class="btn small" type="button" data-preview="sample">放回範例資料</button>
+      </span>
+    </div>`;
+  view.before(wrap);
+  wrap.addEventListener('click', async (e) => {
+    const act = e.target.closest('[data-preview]')?.dataset.preview;
+    if (!act) return;
+    const clear = act === 'clear';
+    const ok = await confirmDialog(
+      clear ? '要清空所有紀錄、預算和固定收支嗎？類別會恢復成預設。' : '要用範例資料取代目前的所有資料嗎？',
+      { ok: clear ? '清空' : '放回範例', danger: true },
+    );
+    if (!ok) return;
+    if (clear) await clearAllData();
+    else {
+      await loadSample();
+      await generateDue();
+    }
+    toast(clear ? '已清空' : '已放回範例資料');
+    refresh();
+  });
+}
 
 /** 自動記入到期的固定收支；有新紀錄就重畫目前頁面 */
 async function runRecurring({ rerender }) {
@@ -30,6 +64,10 @@ async function main() {
   // 請瀏覽器不要在空間不足時自動清掉資料
   navigator.storage?.persist?.().catch(() => {});
 
+  if (PREVIEW) {
+    await loadSampleOnce().catch((err) => console.error('範例資料載入失敗', err));
+    mountPreviewBar(view);
+  }
   await runRecurring({ rerender: false });
   startRouter(view);
 
@@ -39,7 +77,7 @@ async function main() {
   });
 
   const secure = location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname);
-  if ('serviceWorker' in navigator && secure) {
+  if ('serviceWorker' in navigator && secure && !PREVIEW) {
     navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('Service Worker 註冊失敗', err));
   }
 }

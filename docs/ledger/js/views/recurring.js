@@ -1,11 +1,11 @@
-// 固定收支：列表（#/recurring）與新增／編輯表單（#/recurring/new、#/recurring/<id>）。
+// 固定收支：列表（#recurring）與新增／編輯表單（#recurring-new、#recurring-<id>）。
 import { deleteRule, generateDue, getRule, listRules, saveRule } from '../services/recurring.js';
 import { listCategories } from '../services/categories.js';
 import { dueDates, nextDate, suggestStartMonth } from '../domain/recurring.js';
 import { formatAmount, isMonthStr, todayStr } from '../domain/format.js';
 import { MAX_NOTE, ValidationError } from '../domain/validate.js';
 import { goBack } from '../router.js';
-import { catMap, categoryGrid, emptyState, esc, subHeader, toast } from './components.js';
+import { catMap, categoryGrid, confirmDialog, emptyState, esc, subHeader, toast } from './components.js';
 
 export const fullscreen = (ctx) => Boolean(ctx.param);
 
@@ -24,7 +24,7 @@ async function renderList(el) {
     const cat = map.get(r.categoryId);
     const next = nextDate(r, today);
     return `
-      <li><a class="tx ${r.active ? '' : 'is-off'}" href="#/recurring/${encodeURIComponent(r.id)}">
+      <li><a class="tx ${r.active ? '' : 'is-off'}" href="#recurring-${encodeURIComponent(r.id)}">
         <span class="tx-icon" aria-hidden="true">${esc(cat?.icon ?? '❔')}</span>
         <span class="tx-main">
           <span class="tx-cat">${esc(r.note || cat?.name || '未知類別')}</span>
@@ -38,10 +38,10 @@ async function renderList(el) {
     ${subHeader('固定收支')}
     <section class="card">
       ${rules.length ? `<ul class="tx-list">${rules.map(row).join('')}</ul>` : emptyState('還沒有固定收支')}
-      <a class="btn block" href="#/recurring/new">＋ 新增固定收支</a>
+      <a class="btn block" href="#recurring-new">＋ 新增固定收支</a>
       <p class="hint">像房租、薪水、訂閱費這種每月固定的收支，設定好之後，每次打開記帳本時會自動把到期的記進去。自動記入的紀錄會標示「固定」，一樣可以修改或刪除。</p>
     </section>`;
-  el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#/settings'));
+  el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#prefs'));
 }
 
 async function renderForm(el, id) {
@@ -49,7 +49,7 @@ async function renderForm(el, id) {
   const rule = id ? await getRule(id) : null;
   if (id && !rule) {
     el.innerHTML = `${subHeader('固定收支')}${emptyState('找不到這個固定收支，可能已經被刪除')}`;
-    el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#/recurring'));
+    el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#recurring'));
     return;
   }
   const allCats = await listCategories({ includeHidden: true });
@@ -156,12 +156,12 @@ async function renderForm(el, id) {
       paint();
       showErrors();
     } else if (e.target.closest('[data-act="back"]')) {
-      goBack('#/recurring');
+      goBack('#recurring');
     } else if (e.target.closest('[data-act="delete"]')) {
-      if (!confirm('確定要刪除這個固定收支嗎？\n已經記入的紀錄會保留。')) return;
+      if (!(await confirmDialog('確定要刪除這個固定收支嗎？\n已經記入的紀錄會保留。', { ok: '刪除', danger: true }))) return;
       await deleteRule(rule.id);
       toast('已刪除');
-      goBack('#/recurring');
+      goBack('#recurring');
     }
   });
 
@@ -197,7 +197,7 @@ async function renderForm(el, id) {
     }
     const n = await generateDue();
     toast(n ? `已儲存，並自動記入 ${n} 筆` : '已儲存');
-    goBack('#/recurring');
+    goBack('#recurring');
   });
 
   paint();

@@ -30,7 +30,7 @@ export function monthSwitcher(month) {
 export function txItem(tx, cat) {
   const sign = tx.type === 'expense' ? '-' : '+';
   return `
-    <li><a class="tx" href="#/edit/${encodeURIComponent(tx.id)}">
+    <li><a class="tx" href="#edit-${encodeURIComponent(tx.id)}">
       <span class="tx-icon" aria-hidden="true">${esc(cat?.icon ?? '❔')}</span>
       <span class="tx-main">
         <span class="tx-cat">${esc(cat?.name ?? '未知類別')}${tx.recurringId ? '<span class="badge">固定</span>' : ''}</span>
@@ -131,7 +131,7 @@ export function budgetCard(status, { editLink = true } = {}) {
     .join('');
   return `
     <section class="card">
-      <div class="section-head"><h2>本月預算</h2>${editLink ? '<a href="#/budget">調整 ›</a>' : ''}</div>
+      <div class="section-head"><h2>本月預算</h2>${editLink ? '<a href="#budget">調整 ›</a>' : ''}</div>
       ${totalHtml}
       ${rows ? `<ul class="budget-rows">${rows}</ul>` : ''}
     </section>`;
@@ -143,3 +143,29 @@ export const subHeader = (title) => `
     <button class="icon-btn" type="button" data-act="back" aria-label="返回">‹</button>
     <h1>${esc(title)}</h1>
   </header>`;
+
+/**
+ * 畫面內的確認對話框（不用瀏覽器的 confirm()，在任何環境都能顯示）。
+ * 回傳 Promise<boolean>：按「確定」為 true，取消或按 Esc 為 false。
+ */
+export function confirmDialog(message, { ok = '確定', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const d = document.createElement('dialog');
+    d.className = 'sheet confirm';
+    d.innerHTML = `
+      <form method="dialog">
+        <p class="confirm-msg">${esc(message).replace(/\n/g, '<br>')}</p>
+        <div class="btn-row">
+          <button class="btn" value="cancel">取消</button>
+          <button class="btn ${danger ? 'danger-fill' : 'primary'}" value="ok">${esc(ok)}</button>
+        </div>
+      </form>`;
+    document.body.append(d);
+    d.addEventListener('close', () => {
+      resolve(d.returnValue === 'ok');
+      d.remove();
+    });
+    d.showModal();
+    d.querySelector('[value="cancel"]').focus();
+  });
+}

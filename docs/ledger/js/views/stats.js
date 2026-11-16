@@ -10,8 +10,7 @@ import { drawBars, drawDonut } from './charts.js';
 const TREND_MONTHS = 6;
 
 export async function render(el, ctx) {
-  const m = ctx.query.get('m');
-  const month = isMonthStr(m) ? m : monthOf(todayStr());
+  const month = isMonthStr(ctx.param) ? ctx.param : monthOf(todayStr());
   const [trendTxs, cats] = await Promise.all([
     listMonths(addMonths(month, -(TREND_MONTHS - 1)), month),
     listCategories({ includeHidden: true }),
@@ -82,7 +81,7 @@ export async function render(el, ctx) {
 
   el.addEventListener('click', (e) => {
     const nav = e.target.closest('[data-month-nav]');
-    if (nav) replaceRoute(`#/stats?m=${addMonths(month, Number(nav.dataset.monthNav))}`);
+    if (nav) replaceRoute(`#stats-${addMonths(month, Number(nav.dataset.monthNav))}`);
   });
 
   // 圖表要等元素放進畫面、量得到寬度之後才畫

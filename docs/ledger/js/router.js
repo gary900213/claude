@@ -1,5 +1,6 @@
-// hash 路由：#/、#/list?m=2026-11、#/stats、#/settings、#/add?type=income、#/edit/<id>、
-//          #/budget、#/recurring、#/recurring/new、#/recurring/<id>
+// hash 路由：只用英數字和連字號（「頁面-參數」），在任何網址環境都能正常傳遞。
+//   #home、#list、#list-2026-11、#stats、#stats-2026-11、#prefs（設定）、
+//   #add、#add-income、#edit-<id>、#budget、#recurring、#recurring-new、#recurring-<id>
 import * as home from './views/home.js';
 import * as list from './views/list.js';
 import * as stats from './views/stats.js';
@@ -9,27 +10,29 @@ import * as budget from './views/budget.js';
 import * as recurring from './views/recurring.js';
 import { esc } from './views/components.js';
 
-const views = { home, list, stats, settings, add: edit, edit, budget, recurring };
+const views = { home, list, stats, prefs: settings, add: edit, edit, budget, recurring };
 
 // 子頁面在底部選單要亮哪一個分頁
-const TAB_OF = { budget: 'settings', recurring: 'settings' };
+const TAB_OF = { budget: 'prefs', recurring: 'prefs' };
 
 let navigated = false;
 let renderToken = 0;
 
 export function parseHash(hash = location.hash) {
-  const h = hash.replace(/^#/, '') || '/';
-  const [path, qs = ''] = h.split('?');
-  const parts = path.split('/').filter(Boolean);
-  return {
-    name: parts[0] && views[parts[0]] ? parts[0] : 'home',
-    param: parts[1] ? decodeURIComponent(parts[1]) : null,
-    query: new URLSearchParams(qs),
-  };
+  let h = hash.replace(/^#/, '');
+  try {
+    h = decodeURIComponent(h);
+  } catch {
+    // 網址編碼壞掉就照原樣使用
+  }
+  const i = h.indexOf('-');
+  const name = i < 0 ? h : h.slice(0, i);
+  const param = i < 0 ? '' : h.slice(i + 1);
+  return views[name] ? { name, param: param || null } : { name: 'home', param: null };
 }
 
 /** 回上一頁；如果是直接開啟這一頁（沒有上一頁），就回首頁 */
-export function goBack(fallback = '#/') {
+export function goBack(fallback = '#home') {
   if (navigated) history.back();
   else location.replace(fallback);
 }

@@ -10,8 +10,7 @@ import { catMap, emptyState, esc, groupedList, monthSwitcher, summaryCards } fro
 const filters = { categoryId: '', keyword: '' };
 
 export async function render(el, ctx) {
-  const m = ctx.query.get('m');
-  const month = isMonthStr(m) ? m : monthOf(todayStr());
+  const month = isMonthStr(ctx.param) ? ctx.param : monthOf(todayStr());
   const [txs, cats] = await Promise.all([listByMonth(month), listCategories({ includeHidden: true })]);
   const map = catMap(cats);
   if (filters.categoryId && !map.has(filters.categoryId)) filters.categoryId = '';
@@ -57,7 +56,7 @@ export async function render(el, ctx) {
   });
   el.addEventListener('click', (e) => {
     const nav = e.target.closest('[data-month-nav]');
-    if (nav) replaceRoute(`#/list?m=${addMonths(month, Number(nav.dataset.monthNav))}`);
+    if (nav) replaceRoute(`#list-${addMonths(month, Number(nav.dataset.monthNav))}`);
   });
 
   update();

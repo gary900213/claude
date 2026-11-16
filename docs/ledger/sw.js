@@ -1,7 +1,7 @@
 // Service Worker：快取 App 檔案，沒有網路也能開啟。
 // 策略：先用快取立刻顯示，同時在背景抓新版更新快取（下次開啟就是新版）。
 // 新增或改名檔案時，記得更新 ASSETS 並把 VERSION 加 1。
-const VERSION = 2;
+const VERSION = 3;
 const CACHE = `ledger-v${VERSION}`;
 
 const ASSETS = [
@@ -14,6 +14,8 @@ const ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './js/app.js',
+  './js/config.js',
+  './js/sample.js',
   './js/router.js',
   './js/defaults.js',
   './js/storage/db.js',
@@ -27,6 +29,7 @@ const ASSETS = [
   './js/services/budget.js',
   './js/services/categories.js',
   './js/services/ledger.js',
+  './js/services/preview.js',
   './js/services/recurring.js',
   './js/views/budget.js',
   './js/views/charts.js',

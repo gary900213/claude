@@ -139,7 +139,7 @@ UI（views/*）  ──呼叫──▶  services（ledger.js）  ──呼叫─
 - **storage**：唯一碰 IndexedDB 的地方，只提供 `get / getAll / put / delete / query` 這類操作。之後要換雲端只改這層。
 - **domain**：純函式，不碰 DOM、不碰資料庫。例如 `summarize(transactions)`、`groupByCategory()`、`monthlyTrend()`、`validateTransaction()`。這層是測試重點。
 - **services**：把 storage 跟 domain 組起來，例如 `addTransaction()` = 驗證 → 寫入 → 通知畫面更新。
-- **UI**：每個畫面一個模組，用 hash 路由（`#/`、`#/add`、`#/list`、`#/stats`、`#/settings`）切換。
+- **UI**：每個畫面一個模組，用 hash 路由切換，格式是「頁面-參數」，只用英數字和連字號（`#home`、`#list-2026-11`、`#edit-<id>`、`#prefs` 等），在任何網址環境都能正常傳遞。確認動作用畫面內的對話框（`confirmDialog`），不用瀏覽器的 `confirm()`。
 
 ## 6. 目錄結構
 
@@ -156,6 +156,8 @@ docs/ledger/
     ├── app.js             # 進入點：初始化 DB、寫入預設類別、啟動路由
     ├── router.js          # hash 路由
     ├── defaults.js        # 預設類別
+    ├── config.js          # PREVIEW 開關（預覽版用）
+    ├── sample.js          # 範例資料（預覽版第一次開啟時放入）
     ├── storage/
     │   └── db.js          # IndexedDB 包裝
     ├── domain/
@@ -179,8 +181,8 @@ docs/ledger/
         ├── list.js        # 月份列表、篩選、搜尋
         ├── stats.js       # 圖表（用 <canvas> 自己畫，不引入圖表套件）
         ├── settings.js    # 類別管理、備份、進階功能選單
-        ├── budget.js      # 每月預算（#/budget）
-        └── recurring.js   # 固定收支列表與表單（#/recurring）
+        ├── budget.js      # 每月預算（#budget）
+        └── recurring.js   # 固定收支列表與表單（#recurring）
 
 tests/ledger/
 ├── budget.test.mjs
@@ -214,3 +216,10 @@ tests/ledger/
 4. **設定與備份**：類別管理、匯出匯入
 5. **PWA**：manifest、Service Worker、圖示，手機可安裝、可離線
 6. **預算與固定收支**：資料庫升到 v2、每月預算、固定收支自動記入、備份格式 v2
+
+## 預覽版
+
+另外有一份放在 claude.ai 的預覽版，和正式網站用同一份程式，只差在：
+
+- `js/config.js` 的 `PREVIEW` 設成 `true`：第一次開啟放入範例資料、頁面上方顯示說明列（可清空或放回範例資料）、不註冊離線快取、匯出改成提示（預覽頁不能下載檔案）。
+- `index.html` 只保留 `<head>` 裡的 title、icon、樣式與程式，以及 `<body>` 的內容（預覽平台會自己加上外層）；不放 `sw.js` 和 `manifest.webmanifest`。

@@ -14,7 +14,7 @@ import { generateDue, listRules } from '../services/recurring.js';
 import { formatAmount } from '../domain/format.js';
 import { countByCategory } from '../domain/stats.js';
 import { ValidationError } from '../domain/validate.js';
-import { emptyState, esc, toast } from './components.js';
+import { confirmDialog, emptyState, esc, toast } from './components.js';
 
 const ICON_CHOICES = ['🍜', '☕', '🚗', '⛽', '✈️', '🏍️', '🏥', '👕', '📱', '🎮', '🐶', '👶', '💄', '📚', '🎬', '🛒', '🏋️', '💳', '🧾', '🎂'];
 
@@ -25,12 +25,12 @@ export async function render(el) {
     <header class="page-head"><h1>設定</h1></header>
 
     <nav class="card menu" aria-label="進階功能">
-      <a class="menu-row" href="#/budget">
+      <a class="menu-row" href="#budget">
         <span class="cat-icon" aria-hidden="true">🎯</span>
         <span class="cat-row-name">每月預算<small data-budget-info></small></span>
         <span class="chev" aria-hidden="true">›</span>
       </a>
-      <a class="menu-row" href="#/recurring">
+      <a class="menu-row" href="#recurring">
         <span class="cat-icon" aria-hidden="true">🔁</span>
         <span class="cat-row-name">固定收支<small data-recurring-info></small></span>
         <span class="chev" aria-hidden="true">›</span>
@@ -186,7 +186,7 @@ export async function render(el) {
         if (await act(() => setHidden(editing.id, !editing.hidden), editing.hidden ? '已取消隱藏' : '已隱藏')) dialog.close();
         break;
       case 'delete':
-        if (!confirm(`確定要刪除「${editing.name}」嗎？`)) return;
+        if (!(await confirmDialog(`確定要刪除「${editing.name}」嗎？`, { ok: '刪除', danger: true }))) return;
         if (await act(() => deleteCategory(editing.id), '已刪除')) dialog.close();
         break;
       case 'export-json':
@@ -213,7 +213,11 @@ export async function render(el) {
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
-    if (!confirm('匯入會「取代」目前所有的類別、紀錄、預算和固定收支，確定要繼續嗎？\n建議先匯出一份目前的備份。')) return;
+    const sure = await confirmDialog(
+      '匯入會「取代」目前所有的類別、紀錄、預算和固定收支，確定要繼續嗎？\n建議先匯出一份目前的備份。',
+      { ok: '取代並匯入', danger: true },
+    );
+    if (!sure) return;
     await act(async () => {
       const r = await importJSON(await file.text());
       await generateDue();

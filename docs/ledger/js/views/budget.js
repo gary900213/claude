@@ -41,7 +41,7 @@ export async function render(el) {
       <button class="btn primary block" type="submit">儲存預算</button>
     </form>`;
 
-  el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#/settings'));
+  el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#prefs'));
 
   const form = el.querySelector('form');
   form.addEventListener('input', (e) => {

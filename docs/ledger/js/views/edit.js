@@ -4,7 +4,7 @@ import { listCategories } from '../services/categories.js';
 import { todayStr } from '../domain/format.js';
 import { MAX_NOTE, ValidationError } from '../domain/validate.js';
 import { goBack } from '../router.js';
-import { categoryGrid, emptyState, esc, subHeader, toast } from './components.js';
+import { categoryGrid, confirmDialog, emptyState, esc, subHeader, toast } from './components.js';
 
 export const fullscreen = true;
 
@@ -21,9 +21,8 @@ export async function render(el, ctx) {
   }
 
   const allCats = await listCategories({ includeHidden: true });
-  const queryType = ctx.query.get('type');
   const state = {
-    type: tx?.type ?? (queryType === 'income' ? 'income' : 'expense'),
+    type: tx?.type ?? (ctx.param === 'income' ? 'income' : 'expense'),
     categoryId: tx?.categoryId ?? null,
   };
   if (!state.categoryId) state.categoryId = lastCategory[state.type];
@@ -93,10 +92,10 @@ export async function render(el, ctx) {
       paint();
       showErrors();
     } else if (e.target.closest('[data-act="delete"]')) {
-      if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+      if (!(await confirmDialog('確定要刪除這筆紀錄嗎？', { ok: '刪除', danger: true }))) return;
       await deleteTransaction(tx.id);
       toast('已刪除');
-      goBack('#/');
+      goBack('#home');
     }
   });
   bindBack(el);
@@ -132,7 +131,7 @@ export async function render(el, ctx) {
     }
     if (!isEdit) lastCategory[state.type] = state.categoryId;
     toast('已儲存');
-    goBack('#/');
+    goBack('#home');
   });
 
   paint();
@@ -140,5 +139,5 @@ export async function render(el, ctx) {
 }
 
 function bindBack(el) {
-  el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#/'));
+  el.querySelector('[data-act="back"]').addEventListener('click', () => goBack('#home'));
 }

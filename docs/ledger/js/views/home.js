@@ -26,13 +26,13 @@ export async function render(el) {
       budgets.length
         ? budgetCard(budgetStatus(monthTxs, budgets, cats, month, today))
         : recent.length
-          ? '<a class="card link-card" href="#/budget"><span>🎯 設定每月預算，隨時知道還能花多少</span><span aria-hidden="true">›</span></a>'
+          ? '<a class="card link-card" href="#budget"><span>🎯 設定每月預算，隨時知道還能花多少</span><span aria-hidden="true">›</span></a>'
           : ''
     }
     <section class="card">
       <div class="section-head">
         <h2>最近紀錄</h2>
-        ${recent.length ? '<a href="#/list">看全部 ›</a>' : ''}
+        ${recent.length ? '<a href="#list">看全部 ›</a>' : ''}
       </div>
       ${recent.length ? groupedList(groupByDate(recent), catMap(cats)) : emptyState('還沒有任何紀錄，按右下角的「＋」記第一筆吧')}
     </section>`;
