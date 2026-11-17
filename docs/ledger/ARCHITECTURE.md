@@ -38,6 +38,14 @@
 - 統計頁顯示平均每天支出，以及和上個月同期（例如 10/1–10/17 對 11/1–11/17）的比較
 - 首頁顯示今天花了多少
 
+**第四版（已完成）：Apple Pay 自動記帳**
+- iPhone 捷徑的「交易」自動化在感應付款時，把金額、商店、時間以一則留言送到使用者自己的 secret GitHub Gist（收件匣）
+- 記帳本開啟或切回前景時讀取 Gist 留言（`api.github.com/gists/<id>/comments`，不需要權杖），新的交易自動記帳，標示「Apple Pay」
+- 為什麼繞這一圈：捷徑打開網址會用 Safari，而 iPhone 上「加到主畫面」的網頁 App 和 Safari 的資料是分開的，捷徑沒辦法直接寫進桌面 App
+- 依商店名稱猜類別（`domain/inbox.js` 的 `DEFAULT_RULES`）；使用者改過類別後記住這家店（含其他分店），之後自動套用
+- 沒帶到金額的交易放在「待補金額」；已處理過的交易記在 `inboxSeen`，同一筆不會記兩次
+- 不想用 GitHub：捷徑改成附加到 iCloud 雲碟的文字檔，在 App 裡「從檔案匯入」
+
 **之後再做**
 - 帳戶（現金／銀行／信用卡）與轉帳
 - 多幣別、跨裝置同步
@@ -172,6 +180,7 @@ docs/ledger/
     │   ├── format.js      # 金額、日期格式化
     │   ├── csv.js         # 產生 CSV
     │   ├── amount.js      # 記帳鍵盤的加減算式
+    │   ├── inbox.js       # Apple Pay 交易解析、商店分類
     │   ├── budget.js      # 預算使用狀況
     │   └── recurring.js   # 固定收支的到期日計算
     ├── services/
@@ -179,6 +188,7 @@ docs/ledger/
     │   ├── categories.js  # 類別管理
     │   ├── budget.js      # 預算讀寫
     │   ├── recurring.js   # 固定收支規則、自動記入
+    │   ├── inbox.js       # Apple Pay 收件匣同步、匯入、學習分類
     │   └── backup.js      # 匯出／匯入 JSON、CSV
     └── views/
         ├── components.js  # 共用畫面片段、toast、HTML 跳脫
@@ -189,7 +199,8 @@ docs/ledger/
         ├── stats.js       # 圖表（用 <canvas> 自己畫，不引入圖表套件）
         ├── settings.js    # 類別管理、備份、進階功能選單
         ├── budget.js      # 每月預算（#budget）
-        └── recurring.js   # 固定收支列表與表單（#recurring）
+        ├── recurring.js   # 固定收支列表與表單（#recurring）
+        └── applepay.js    # Apple Pay 自動記帳設定與教學（#applepay）
 
 tests/ledger/
 ├── budget.test.mjs

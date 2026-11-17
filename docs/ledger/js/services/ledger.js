@@ -4,11 +4,13 @@ import { validateTransaction, ValidationError } from '../domain/validate.js';
 import { monthRange } from '../domain/format.js';
 import { sortTransactions } from '../domain/stats.js';
 
-export async function addTransaction(input) {
+/** extra.source = 'applepay'：從 Apple Pay 收件匣補記的紀錄 */
+export async function addTransaction(input, extra = {}) {
   const v = validateTransaction(input, await db.getAll('categories'));
   if (!v.ok) throw new ValidationError(v.errors);
   const now = Date.now();
-  const tx = { id: db.uid(), ...v.value, createdAt: now, updatedAt: now };
+  const source = extra.source === 'applepay' ? { source: 'applepay' } : {};
+  const tx = { id: db.uid(), ...v.value, ...source, createdAt: now, updatedAt: now };
   await db.put('transactions', tx);
   return tx;
 }

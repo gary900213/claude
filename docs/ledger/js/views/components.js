@@ -33,7 +33,7 @@ export function txItem(tx, cat) {
     <li><a class="tx" href="#edit-${encodeURIComponent(tx.id)}">
       <span class="tx-icon" aria-hidden="true">${esc(cat?.icon ?? '❔')}</span>
       <span class="tx-main">
-        <span class="tx-cat">${esc(cat?.name ?? '未知類別')}${tx.recurringId ? '<span class="badge">固定</span>' : ''}</span>
+        <span class="tx-cat">${esc(cat?.name ?? '未知類別')}${tx.recurringId ? '<span class="badge">固定</span>' : ''}${tx.source === 'applepay' ? '<span class="badge pay">Apple Pay</span>' : ''}</span>
         ${tx.note ? `<span class="tx-note">${esc(tx.note)}</span>` : ''}
       </span>
       <span class="tx-amt ${tx.type}">${sign}${formatAmount(tx.amount)}</span>

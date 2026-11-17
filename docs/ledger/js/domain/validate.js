@@ -143,6 +143,7 @@ export function validateBackup(data) {
       id: t.id,
       ...v.value,
       ...(typeof t.recurringId === 'string' ? { recurringId: t.recurringId } : {}),
+      ...(t.source === 'applepay' ? { source: 'applepay' } : {}),
       createdAt,
       updatedAt: Number.isFinite(t.updatedAt) ? t.updatedAt : createdAt,
     });

@@ -11,6 +11,7 @@ import { getAllTransactions } from '../services/ledger.js';
 import { exportCSV, exportJSON, getLastExportAt, importJSON } from '../services/backup.js';
 import { getBudgets } from '../services/budget.js';
 import { generateDue, listRules } from '../services/recurring.js';
+import { getInbox } from '../services/inbox.js';
 import { formatAmount } from '../domain/format.js';
 import { countByCategory } from '../domain/stats.js';
 import { ValidationError } from '../domain/validate.js';
@@ -28,6 +29,11 @@ export async function render(el) {
       <a class="menu-row" href="#budget">
         <span class="cat-icon" aria-hidden="true">🎯</span>
         <span class="cat-row-name">每月預算<small data-budget-info></small></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </a>
+      <a class="menu-row" href="#applepay">
+        <span class="cat-icon" aria-hidden="true">📲</span>
+        <span class="cat-row-name">Apple Pay 自動記帳<small data-applepay-info></small></span>
         <span class="chev" aria-hidden="true">›</span>
       </a>
       <a class="menu-row" href="#recurring">
@@ -83,13 +89,17 @@ export async function render(el) {
   let editing = null; // 正在編輯的類別；null = 新增
 
   async function refresh() {
-    const [allCats, txs, lastExport, budgets, rules] = await Promise.all([
+    const [allCats, txs, lastExport, budgets, rules, inbox] = await Promise.all([
       listCategories({ includeHidden: true }),
       getAllTransactions(),
       getLastExportAt(),
       getBudgets(),
       listRules(),
+      getInbox(),
     ]);
+    el.querySelector('[data-applepay-info]').textContent = inbox.gistId
+      ? inbox.lastError ? '同步失敗，點進去看原因' : '已設定，打開 App 時自動同步'
+      : '刷卡後自動記帳（需要設定一次）';
     const total = budgets.find((b) => b.id === 'total');
     el.querySelector('[data-budget-info]').textContent = total
       ? `每月 ${formatAmount(total.amount)}`

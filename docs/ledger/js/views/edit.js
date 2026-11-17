@@ -5,6 +5,7 @@ import { formatAmount, todayStr } from '../domain/format.js';
 import { evalAmount, hasOperator, pressKey } from '../domain/amount.js';
 import { MAX_NOTE, ValidationError } from '../domain/validate.js';
 import { goBack } from '../router.js';
+import { learnCategory, removePending } from '../services/inbox.js';
 import { categoryGrid, confirmDialog, emptyState, esc, subHeader, toast } from './components.js';
 
 export const fullscreen = true;
@@ -12,8 +13,13 @@ export const fullscreen = true;
 // 記住支出、收入各自上一次用的類別，連續記帳比較快
 const lastCategory = { expense: null, income: null };
 
-// 「再記一筆一樣的」帶過來的內容
+// 「再記一筆一樣的」或「補記 Apple Pay 交易」帶過來的內容
 let prefill = null;
+
+/** 打開「記一筆」前先帶入內容：{ type, categoryId, amount, note, date, pendingKey } */
+export function setPrefill(value) {
+  prefill = value;
+}
 
 const KEYS = [
   ['7', '8', '9', 'back'],
@@ -39,7 +45,7 @@ export async function render(el, ctx) {
   const state = {
     type: from?.type ?? (ctx.param === 'income' ? 'income' : 'expense'),
     categoryId: from?.categoryId ?? null,
-    expr: from ? String(from.amount) : '',
+    expr: from?.amount ? String(from.amount) : '',
   };
   if (!state.categoryId) state.categoryId = lastCategory[state.type];
 
@@ -64,7 +70,7 @@ export async function render(el, ctx) {
       <div class="field-row">
         <label class="field">
           <span>日期</span>
-          <input type="date" name="date" value="${tx?.date ?? todayStr()}" required>
+          <input type="date" name="date" value="${tx?.date ?? from?.date ?? todayStr()}" required>
         </label>
         <label class="field">
           <span>備註</span>
@@ -189,13 +195,21 @@ export async function render(el, ctx) {
     };
     try {
       if (isEdit) await updateTransaction(tx.id, input);
-      else await addTransaction(input);
+      else await addTransaction(input, from?.pendingKey ? { source: 'applepay' } : {});
     } catch (err) {
       if (err instanceof ValidationError) showErrors(err.errors);
       else toast(err.message);
       return;
     }
     if (!isEdit) lastCategory[state.type] = state.categoryId;
+    // Apple Pay 的紀錄改了類別：記住這家店，下次自動用這個類別
+    if (isEdit && tx.source === 'applepay' && state.categoryId !== tx.categoryId) {
+      await learnCategory(tx.note, state.categoryId);
+    }
+    if (from?.pendingKey) {
+      await removePending(from.pendingKey);
+      if (input.note) await learnCategory(input.note, state.categoryId);
+    }
     toast('已儲存');
     goBack('#home');
   });

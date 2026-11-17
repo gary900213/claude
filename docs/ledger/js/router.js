@@ -1,6 +1,6 @@
 // hash 路由：只用英數字和連字號（「頁面-參數」），在任何網址環境都能正常傳遞。
 //   #home、#list、#list-2026-11、#stats、#stats-2026-11、#prefs（設定）、
-//   #add、#add-income、#edit-<id>、#budget、#recurring、#recurring-new、#recurring-<id>
+//   #add、#add-income、#edit-<id>、#budget、#recurring、#recurring-new、#recurring-<id>、#applepay
 import * as home from './views/home.js';
 import * as list from './views/list.js';
 import * as stats from './views/stats.js';
@@ -8,12 +8,13 @@ import * as settings from './views/settings.js';
 import * as edit from './views/edit.js';
 import * as budget from './views/budget.js';
 import * as recurring from './views/recurring.js';
+import * as applepay from './views/applepay.js';
 import { esc } from './views/components.js';
 
-const views = { home, list, stats, prefs: settings, add: edit, edit, budget, recurring };
+const views = { home, list, stats, prefs: settings, add: edit, edit, budget, recurring, applepay };
 
 // 子頁面在底部選單要亮哪一個分頁
-const TAB_OF = { budget: 'prefs', recurring: 'prefs' };
+const TAB_OF = { budget: 'prefs', recurring: 'prefs', applepay: 'prefs' };
 
 let navigated = false;
 let renderToken = 0;

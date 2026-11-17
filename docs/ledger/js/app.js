@@ -1,6 +1,7 @@
 // 進入點：開資料庫、寫入預設類別、啟動路由、註冊離線快取。
 import { ensureDefaults } from './services/categories.js';
 import { generateDue } from './services/recurring.js';
+import { syncGist } from './services/inbox.js';
 import { refresh, startRouter } from './router.js';
 import { confirmDialog, esc, toast } from './views/components.js';
 import { PREVIEW } from './config.js';
@@ -38,6 +39,26 @@ function mountPreviewBar(view) {
   });
 }
 
+let lastSync = 0;
+
+/** 從 Apple Pay 收件匣同步（最多一分鐘一次）；有新紀錄就重畫目前頁面 */
+async function runInbox() {
+  if (PREVIEW || !navigator.onLine || Date.now() - lastSync < 60_000) return;
+  lastSync = Date.now();
+  try {
+    const r = await syncGist();
+    if (r?.added || r?.pending) {
+      refresh();
+      const parts = [];
+      if (r.added) parts.push(`記入 ${r.added} 筆`);
+      if (r.pending) parts.push(`${r.pending} 筆待補金額（設定 → Apple Pay）`);
+      toast(`Apple Pay：${parts.join('，')}`);
+    }
+  } catch (err) {
+    console.warn('Apple Pay 同步失敗', err);
+  }
+}
+
 /** 自動記入到期的固定收支；有新紀錄就重畫目前頁面 */
 async function runRecurring({ rerender }) {
   try {
@@ -70,10 +91,14 @@ async function main() {
   }
   await runRecurring({ rerender: false });
   startRouter(view);
+  runInbox();
 
   // App 一直開著跨過午夜、或從背景切回來時，再檢查一次
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') runRecurring({ rerender: true });
+    if (document.visibilityState === 'visible') {
+      runRecurring({ rerender: true });
+      runInbox();
+    }
   });
 
   const secure = location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname);
