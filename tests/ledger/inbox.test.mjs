@@ -55,6 +55,9 @@ test('guessCategory：學過的優先，再看關鍵字', () => {
   assert.equal(guessCategory('UBER TRIP', {}, cats), 'transport');
   assert.equal(guessCategory('台灣中油 民生站', {}, cats), 'transport');
   assert.equal(guessCategory('IKEA 新店', {}, cats), 'housing');
+  for (const m of ['台灣高速鐵路股份有限公司', 'TAIWAN HIGH SPEED RAIL', 'THSR 台北站', '臺灣鐵路管理局', 'TAIPEI METRO', '國光客運', '遠通電收 eTag']) {
+    assert.equal(guessCategory(m, {}, cats), 'transport', m);
+  }
   assert.equal(guessCategory('某某精品', {}, cats), 'other_expense');
   assert.equal(guessCategory('7-ELEVEN 民生門市', { '7-eleven': 'social' }, cats), 'social', '學過的分店也適用');
   const hiddenFood = cats.map((c) => (c.id === 'food' ? { ...c, hidden: true } : c));

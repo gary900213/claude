@@ -82,8 +82,10 @@ export const DEFAULT_RULES = [
     'ok超商', 'ok mart', '麥當勞', 'mcdonald', '星巴克', 'starbucks', '路易莎', 'louisa', '85度c', '摩斯', 'mos burger',
     '肯德基', 'kfc', '漢堡王', '必勝客', '達美樂', '全聯', 'pxmart', '家樂福', 'carrefour', '美廉社',
     '餐', '食', '飯', '麵', '咖啡', 'cafe', 'coffee', '茶', '飲', '烘焙', 'bakery', 'restaurant']],
-  ['transport', ['中油', 'cpc', '台塑石油', '加油', '捷運', 'metro', '台鐵', '高鐵', 'thsr', 'uber', '計程車', 'taxi',
-    'yoxi', '停車', 'parking', '悠遊卡', 'easycard', '一卡通', 'ipass', 'irent', 'gogoro', 'wemo']],
+  ['transport', ['中油', 'cpc', '台塑石油', '加油', '捷運', 'metro', 'mrt',
+    '高鐵', '高速鐵路', 'thsr', 'high speed rail', 't express', '台鐵', '臺鐵', '台灣鐵路', '臺灣鐵路', 'railway',
+    '客運', '國光', '統聯', 'uber', '計程車', 'taxi', '台灣大車隊', '55688', 'yoxi',
+    '停車', 'parking', '悠遊卡', 'easycard', '一卡通', 'ipass', 'irent', 'gogoro', 'wemo', 'etag', '遠通']],
   ['housing', ['ikea', '特力屋', 'hola', '台電', '台灣電力', '自來水', '瓦斯', '中華電信', '台灣大哥大', '遠傳', '亞太電信']],
 ];
 
