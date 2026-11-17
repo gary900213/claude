@@ -172,27 +172,46 @@ h1, h2, h3 { margin: 0; }
 .segmented.small { margin-bottom: 8px; }
 
 .amount-field {
-  display: flex; align-items: center; gap: 6px; margin-top: 10px;
-  padding: 8px 16px; border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow);
-  color: var(--accent);
-  border: 2px solid transparent;
+  display: flex; align-items: baseline; gap: 6px; margin-top: 10px;
+  padding: 10px 16px; border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow);
+  color: var(--accent); min-width: 0;
 }
-.amount-field:focus-within { border-color: var(--accent); }
-.amount-field span { font-size: 1.6rem; font-weight: 600; }
-.amount-field input {
-  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
-  font-size: 2.2rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums;
+.amount-field > span:first-child { font-size: 1.6rem; font-weight: 600; }
+.amount-expr {
+  flex: 1; min-width: 0; overflow-wrap: anywhere;
+  font-size: 2rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums;
 }
+.amount-expr.placeholder { opacity: .35; }
+.amount-result { font-size: 1.05rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 6px; }
+/* 記帳鍵盤：固定在畫面底部 */
+.keypad {
+  position: sticky; bottom: 0; z-index: 5;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  margin: 14px -16px calc(-32px - var(--safe-bottom)); padding: 8px 16px calc(8px + var(--safe-bottom));
+  background: var(--bg); border-top: 1px solid var(--line);
+}
+.key {
+  min-height: 46px; border: 0; border-radius: 12px;
+  background: var(--card); box-shadow: var(--shadow);
+  font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.key.op { background: var(--primary-soft); color: var(--text); }
+.key.save { background: var(--accent); color: #fff; font-size: 1.05rem; }
+.key:active { transform: scale(.96); }
+.key:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .key:active { transform: none; } }
+
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; margin-top: 6px; }
 .cat {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 10px 4px; border: 2px solid transparent; border-radius: 12px;
+  padding: 6px 2px; border: 2px solid transparent; border-radius: 12px;
   background: var(--card); box-shadow: var(--shadow); cursor: pointer;
 }
 .cat[aria-checked="true"] { border-color: var(--accent); }
 .cat[aria-checked="true"] .cat-icon { background: var(--accent); }
-.cat-name { font-size: .85rem; }
+.cat-name { font-size: .8rem; white-space: nowrap; }
+.cat .cat-icon { width: 32px; height: 32px; font-size: 1.1rem; border-radius: 10px; }
 
 .field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .field > span { font-size: .85rem; color: var(--muted); }
@@ -213,11 +232,24 @@ h1, h2, h3 { margin: 0; }
 .btn.danger-fill { background: var(--danger); border-color: transparent; color: #fff; }
 .btn.small { min-height: 34px; padding: 4px 12px; font-size: .9rem; }
 .btn.block { width: 100%; margin-top: 10px; }
-.edit-form .btn.primary { margin-top: 18px; }
+.edit-form > .btn-row { margin-top: 12px; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .btn-row .btn { flex: 1 1 auto; }
 
 /* ---------- 統計 ---------- */
+.insights { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px;
+  padding: 6px 12px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow);
+  font-size: .85rem; color: var(--muted);
+}
+.pill b { color: var(--text); font-variant-numeric: tabular-nums; }
+.pill.up b { color: var(--expense); }
+.pill.down b { color: var(--income); }
+.pill small { font-size: .75rem; }
+.home-head { justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.today-spent { font-size: .9rem; }
+.today-spent b { font-variant-numeric: tabular-nums; }
 .chart { display: block; width: 100%; }
 .rank { list-style: none; margin: 12px 0 0; padding: 0; }
 .rank li {

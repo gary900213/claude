@@ -3,8 +3,8 @@ import { listByMonth, listRecent } from '../services/ledger.js';
 import { listCategories } from '../services/categories.js';
 import { getBudgets } from '../services/budget.js';
 import { budgetStatus } from '../domain/budget.js';
-import { formatMonth, monthOf, todayStr } from '../domain/format.js';
-import { groupByDate, summarize } from '../domain/stats.js';
+import { formatAmount, formatMonth, monthOf, todayStr } from '../domain/format.js';
+import { groupByDate, spentOn, summarize } from '../domain/stats.js';
 import { budgetCard, catMap, emptyState, groupedList, summaryCards } from './components.js';
 
 export async function render(el) {
@@ -18,8 +18,14 @@ export async function render(el) {
   ]);
 
   el.innerHTML = `
-    <header class="page-head">
+    <header class="page-head home-head">
       <h1>${formatMonth(month)}</h1>
+      ${(() => {
+        const spent = spentOn(monthTxs, today);
+        return spent
+          ? `<span class="today-spent">今天花了 <b class="expense">${formatAmount(spent)}</b></span>`
+          : '<span class="today-spent muted">今天還沒有支出</span>';
+      })()}
     </header>
     ${summaryCards(summarize(monthTxs))}
     ${

@@ -1,8 +1,8 @@
 // 統計：本月支出類別分佈、近 6 個月收支趨勢。
 import { listMonths } from '../services/ledger.js';
 import { listCategories } from '../services/categories.js';
-import { addMonths, formatAmount, formatSigned, isMonthStr, monthOf, todayStr } from '../domain/format.js';
-import { groupByCategory, monthlyTrend, summarize } from '../domain/stats.js';
+import { addMonths, formatAmount, formatSigned, isMonthStr, monthOf, monthRange, todayStr } from '../domain/format.js';
+import { changeRatio, daysElapsed, expenseThroughDay, groupByCategory, monthlyTrend, summarize } from '../domain/stats.js';
 import { replaceRoute } from '../router.js';
 import { categoryColors, emptyState, esc, monthSwitcher, summaryCards } from './components.js';
 import { drawBars, drawDonut } from './charts.js';
@@ -23,11 +23,32 @@ export async function render(el, ctx) {
     label: `${Number(r.month.slice(5))}月`,
   }));
   const colors = categoryColors(cats);
+  const today = todayStr();
+  const elapsed = daysElapsed(month, today);
+  const prev = trend.at(-2);
+  // 本月還沒結束時，和上個月「同期」（1 號到今天的日期）比，才不會永遠顯示比較少
+  const ongoing = month === monthOf(today);
+  const prevDays = Number(monthRange(prev.month)[1].slice(8));
+  const prevDay = Math.min(elapsed, prevDays);
+  const prevExpense = ongoing ? expenseThroughDay(trendTxs, prev.month, prevDay) : prev.expense;
+  const change = changeRatio(summary.expense, prevExpense);
+  const prevName = ongoing ? `${prev.label}同期` : prev.label;
+  const prevRange = ongoing
+    ? `${Number(prev.month.slice(5))}/1–${Number(prev.month.slice(5))}/${prevDay}`
+    : prev.label;
+  const insights = [
+    elapsed ? `<span class="pill">平均每天支出 <b>${formatAmount(Math.round(summary.expense / elapsed))}</b></span>` : '',
+    change === null
+      ? ''
+      : `<span class="pill ${change > 0 ? 'up' : 'down'}">支出比${prevName}${change > 0 ? '多' : '少'} <b>${Math.abs(Math.round(change * 100))}%</b>
+           <small>（${prevRange} ${formatAmount(prevExpense)}）</small></span>`,
+  ].join('');
   const colorOf = (id) => colors.get(id) ?? '#94a3b8';
 
   el.innerHTML = `
     <header class="page-head">${monthSwitcher(month)}</header>
     ${summaryCards(summary)}
+    ${insights ? `<div class="insights">${insights}</div>` : ''}
 
     <section class="card">
       <div class="section-head"><h2>支出分佈</h2></div>

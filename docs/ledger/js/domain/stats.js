@@ -1,5 +1,5 @@
 // 統計、分組、篩選。全部是純函式，輸入一般陣列、輸出新陣列。
-import { addMonths, monthOf } from './format.js';
+import { addMonths, monthOf, monthRange } from './format.js';
 
 /** 依日期新到舊排序；同一天依建立時間新到舊 */
 export function sortTransactions(txs) {
@@ -78,4 +78,28 @@ export function countByCategory(txs) {
   const counts = new Map();
   for (const t of txs) counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1);
   return counts;
+}
+
+/** 這個月到今天為止過了幾天（含今天）；過去的月份是整個月，未來的月份是 0 */
+export function daysElapsed(month, today) {
+  const cur = monthOf(today);
+  if (month > cur) return 0;
+  if (month < cur) return Number(monthRange(month)[1].slice(8));
+  return Number(today.slice(8));
+}
+
+/** 和前一期相比的變化比例；前一期是 0 時無法比較，回傳 null */
+export const changeRatio = (cur, prev) => (prev ? (cur - prev) / prev : null);
+
+/** 某一天的支出合計 */
+export const spentOn = (txs, date) =>
+  txs.reduce((sum, t) => (t.type === 'expense' && t.date === date ? sum + t.amount : sum), 0);
+
+/** 某個月 1 號到 day 號（含）的支出合計；day 超過該月天數就算到月底 */
+export function expenseThroughDay(txs, month, day) {
+  const last = `${month}-${String(day).padStart(2, '0')}`;
+  return txs.reduce(
+    (sum, t) => (t.type === 'expense' && t.date >= `${month}-01` && t.date <= last ? sum + t.amount : sum),
+    0,
+  );
 }

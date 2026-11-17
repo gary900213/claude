@@ -1,3 +1,5 @@
+import { evalAmount } from './amount.js';
+
 // 輸入驗證。全部是純函式；驗證失敗時回傳每個欄位的錯誤訊息。
 
 export const MAX_AMOUNT = 999_999_999;
@@ -20,11 +22,10 @@ export function isValidDate(s) {
   return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
-/** "1,200" → 1200；不是正整數字串就回傳 NaN */
+/** "1,200" → 1200；也接受記帳鍵盤的加減算式 "120+35"；格式不對回傳 NaN */
 export function parseAmount(v) {
   if (typeof v === 'number') return v;
-  const s = String(v ?? '').replace(/[,\s]/g, '');
-  return /^\d+$/.test(s) ? Number(s) : NaN;
+  return evalAmount(v);
 }
 
 /** 計算字數，emoji 組合字算一個 */
