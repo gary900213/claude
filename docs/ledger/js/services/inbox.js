@@ -1,13 +1,17 @@
-// Apple Pay 收件匣：從 GitHub Gist 留言或文字檔匯入 iPhone 捷徑記下的交易。
+// 刷卡自動記帳的收件匣。交易來源有三種：
+//   1. Gmail：使用者部署的 Google Apps Script 讀取 Gmail 裡的刷卡通知（最省事，不用 iPhone 捷徑）
+//   2. GitHub Gist：iPhone 捷徑把 Apple Pay 交易或刷卡簡訊留言到 Gist
+//   3. 文字檔：iPhone 捷徑附加到 iCloud 雲碟的文字檔，手動匯入
 //
 // meta 資料：
-//   inbox            { gistId, lastPage, lastSyncAt, lastError }
+//   inbox            { gistId, lastPage, gmailUrl, gmailKey, gmailSince, lastSyncAt, lastError }
 //   inboxSeen        [key, ...]   已經處理過的交易（避免重複記帳），只留最近 SEEN_LIMIT 筆
 //   inboxPending     [item, ...]  沒帶到金額、等你補記的交易
 //   merchantCategory { 商店鍵: 類別 id }  你改過的分類，下次同一家店自動套用
 import * as db from '../storage/db.js';
 import { guessCategory, merchantKey, parseInboxItem, parseInboxText, toTransaction } from '../domain/inbox.js';
 import { todayStr } from '../domain/format.js';
+import { buildAppsScript, buildQuery, isAppsScriptUrl } from '../domain/gmail.js';
 
 const SEEN_LIMIT = 5000;
 const metaValue = async (key, fallback) => (await db.get('meta', key))?.value ?? fallback;
@@ -82,16 +86,107 @@ export function importItems(items) {
 
 export const importFileText = (text) => importItems(parseInboxText(text));
 
+// ---------- Gmail（Google Apps Script） ----------
+
+function randomKey() {
+  const bytes = new Uint8Array(18);
+  globalThis.crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, 24);
+}
+
+/** 產生要貼到 Google Apps Script 的程式碼（同時記住 KEY 和寄件人設定） */
+export async function generateGmailScript(senders) {
+  const cur = await getInbox();
+  const gmailKey = cur.gmailKey || randomKey();
+  await setInbox({ gmailKey, gmailSenders: String(senders ?? '').trim() });
+  return buildAppsScript({ key: gmailKey, query: buildQuery(senders) });
+}
+
+async function setInbox(patch) {
+  const cur = await getInbox();
+  const next = { ...cur, ...patch };
+  await db.put('meta', { key: 'inbox', value: next });
+  return next;
+}
+
+export async function saveGmailUrl(url) {
+  const value = String(url ?? '').trim();
+  if (value && !isAppsScriptUrl(value)) {
+    throw new Error('網址不對：要用部署後的「網頁應用程式」網址，開頭是 https://script.google.com/macros/s/，結尾是 /exec');
+  }
+  const cur = await getInbox();
+  if (value && !cur.gmailKey) throw new Error('請先按「產生程式碼」，把程式碼貼到 Google 再部署');
+  // 第一次設定時從昨天開始抓，不會一口氣匯入一個月前的通知
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  d.setHours(0, 0, 0, 0);
+  const gmailSince = value && value !== cur.gmailUrl ? d.getTime() : cur.gmailSince ?? d.getTime();
+  return setInbox({ gmailUrl: value, gmailSince, gmailError: null });
+}
+
+async function doSyncGmail(fetchImpl) {
+  const inbox = await getInbox();
+  if (!inbox.gmailUrl) return null;
+  let data;
+  try {
+    const url = `${inbox.gmailUrl}?key=${encodeURIComponent(inbox.gmailKey)}&since=${inbox.gmailSince ?? 0}`;
+    // 不帶自訂標頭，瀏覽器才不會先送 OPTIONS 預檢（Apps Script 不支援）
+    const res = await fetchImpl(url, { cache: 'no-store', redirect: 'follow' });
+    if (!res.ok) throw new Error(`Google 回應錯誤（${res.status}）`);
+    const text = await res.text();
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('讀不到腳本的回應：部署時「誰可以存取」要選「所有人」，而且要用最新的部署網址');
+    }
+    if (!data.ok) {
+      throw new Error(data.error === 'key' ? '腳本的 KEY 和記帳本不一致，請重新產生程式碼並更新部署' : '腳本執行失敗');
+    }
+  } catch (err) {
+    const message = err instanceof TypeError ? '連不上 Google，請確認網路' : err.message;
+    await setInbox({ gmailError: message, lastSyncAt: Date.now() });
+    throw new Error(message);
+  }
+  const items = [];
+  let since = inbox.gmailSince ?? 0;
+  for (const m of data.items ?? []) {
+    since = Math.max(since, Number(m.date) || 0);
+    const item = parseInboxItem(String(m.text ?? ''), `m${m.id}`);
+    if (!item) continue;
+    if (!item.date && m.date) item.date = toLocalDate(new Date(Number(m.date)).toISOString());
+    items.push(item);
+  }
+  const result = await importItems(items);
+  await setInbox({ gmailSince: since, gmailError: null, lastSyncAt: Date.now() });
+  return result;
+}
+
+// ---------- 同步 ----------
+
 let syncing = null;
 
 /**
- * 從 Gist 留言同步。每則留言是一筆交易；已經處理過的會跳過。
- * 沒設定 Gist 時回傳 null。
+ * 從所有設定好的來源同步（Gmail、Gist）。已經處理過的交易會跳過。
+ * 都沒設定時回傳 null；有來源失敗時，其他來源照常匯入，最後丟出第一個錯誤。
  */
-export function syncGist({ fetchImpl = globalThis.fetch } = {}) {
+export function syncAll({ fetchImpl = globalThis.fetch } = {}) {
   // 同時被呼叫多次（開啟 App、切回前景）時只跑一次
   if (!syncing) {
-    syncing = doSync(fetchImpl).finally(() => {
+    syncing = (async () => {
+      const results = await Promise.allSettled([doSyncGmail(fetchImpl), doSync(fetchImpl)]);
+      const done = results.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value);
+      const failed = results.find((r) => r.status === 'rejected');
+      const total = done.reduce(
+        (a, r) => ({ added: a.added + r.added, pending: a.pending + r.pending, skipped: a.skipped + r.skipped }),
+        { added: 0, pending: 0, skipped: 0 },
+      );
+      if (failed) {
+        const err = new Error(failed.reason.message);
+        err.partial = total;
+        throw err;
+      }
+      return done.length ? total : null;
+    })().finally(() => {
       syncing = null;
     });
   }

@@ -96,6 +96,11 @@ test('parseNotice：各種刷卡通知寫法（範例文字，非真實銀行格
   assert.equal(parseNotice('您的OTP驗證碼為123456，交易金額NT$300', today), null);
   assert.equal(parseNotice('本期帳單金額NT$12,345，最低應繳1,235元', today), null);
   assert.equal(parseNotice('您好，天氣變冷了', today), null);
+  assert.deepEqual(
+    parseNotice('您於11/17在全聯消費NT$320，請勿將驗證碼或密碼告訴他人。', today),
+    { amount: 320, merchant: '全聯', date: '2026-11-17' },
+    '警語在金額後面，不影響',
+  );
 });
 
 test('parseInboxItem：留言是刷卡通知全文時也能解析', () => {

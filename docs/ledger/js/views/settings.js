@@ -97,9 +97,12 @@ export async function render(el) {
       listRules(),
       getInbox(),
     ]);
-    el.querySelector('[data-applepay-info]').textContent = inbox.gistId
-      ? inbox.lastError ? '同步失敗，點進去看原因' : '已設定，打開 App 時自動同步'
-      : 'Apple Pay 或刷卡通知自動記帳（需要設定一次）';
+    const sources = (inbox.gmailUrl ? 1 : 0) + (inbox.gistId ? 1 : 0);
+    el.querySelector('[data-applepay-info]').textContent = !sources
+      ? '刷卡後自動記帳（需要設定一次）'
+      : (inbox.gmailUrl && inbox.gmailError) || (inbox.gistId && inbox.lastError)
+        ? '同步失敗，點進去看原因'
+        : '已設定，打開 App 時自動同步';
     const total = budgets.find((b) => b.id === 'total');
     el.querySelector('[data-budget-info]').textContent = total
       ? `每月 ${formatAmount(total.amount)}`

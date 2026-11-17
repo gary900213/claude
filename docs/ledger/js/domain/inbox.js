@@ -49,7 +49,7 @@ export function parseInboxItem(raw, key, today = localToday()) {
     if (!obj || typeof obj !== 'object') {
       // 不是 JSON：可能是銀行的刷卡通知（簡訊、Email），或是「商店 金額」這種簡短文字
       // 退款、驗證碼、帳單通知：不是一筆消費，略過
-      if (IGNORE_WORDS.test(toHalfWidth(text))) return null;
+      if (isIgnored(toHalfWidth(text))) return null;
       if (looksLikeNotice(text)) {
         const n = parseNotice(text, today);
         return n ? { key: key ?? `h${hashText(text)}`, ...n } : null;
@@ -82,21 +82,32 @@ const toHalfWidth = (s) =>
   s.replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
     .replace(/：/g, ':').replace(/，/g, ',').replace(/＄/g, '$').replace(/／/g, '/').replace(/　/g, ' ');
 
+// 退款、驗證碼、帳單：這些字出現在金額「之前」才算（例如「刷退通知：…NT$500」）。
+// 出現在金額之後的通常是警語（「請勿洩漏密碼」「請勿提供驗證碼」），不能因此整則略過。
+const HEAD_CHARS = 120;
+function isIgnored(t) {
+  const m = IGNORE_WORDS.exec(t);
+  if (!m) return false;
+  const amountAt = Math.min(...AMOUNT_PATTERNS.map((re) => t.search(re)).filter((i) => i >= 0));
+  return Number.isFinite(amountAt) ? m.index < amountAt : m.index < HEAD_CHARS;
+}
+
 /** 看起來像刷卡通知（有「消費」「刷卡」之類的字，而且不是退款、驗證碼、帳單） */
 export function looksLikeNotice(text) {
   const t = toHalfWidth(text);
-  return PURCHASE_WORDS.test(t) && !IGNORE_WORDS.test(t);
+  return PURCHASE_WORDS.test(t) && !isIgnored(t);
 }
 
-/** 通知裡的金額：只認有幣別或「金額」字樣的數字，避免把卡號末四碼當成金額 */
+// 通知裡的金額：只認有幣別或「金額」字樣的數字，避免把卡號末四碼當成金額
+const AMOUNT_PATTERNS = [
+  /(?:NT\$|NTD|TWD|新[臺台]幣)\s*:?\s*([\d,]+(?:\.\d+)?)/i,
+  /金額\s*:?\s*(?:NT\$|NTD|TWD|新[臺台]幣)?\s*\$?\s*([\d,]+(?:\.\d+)?)/i,
+  /([\d,]+(?:\.\d+)?)\s*元/,
+  /消費\s*\$\s*([\d,]+(?:\.\d+)?)/,
+];
+
 function noticeAmount(t) {
-  const patterns = [
-    /(?:NT\$|NTD|TWD|新[臺台]幣)\s*:?\s*([\d,]+(?:\.\d+)?)/i,
-    /金額\s*:?\s*(?:NT\$|NTD|TWD|新[臺台]幣)?\s*\$?\s*([\d,]+(?:\.\d+)?)/i,
-    /([\d,]+(?:\.\d+)?)\s*元/,
-    /消費\s*\$\s*([\d,]+(?:\.\d+)?)/,
-  ];
-  for (const re of patterns) {
+  for (const re of AMOUNT_PATTERNS) {
     const m = t.match(re);
     if (m) return parseAmountText(m[1]);
   }

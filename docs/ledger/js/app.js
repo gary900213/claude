@@ -1,7 +1,7 @@
 // 進入點：開資料庫、寫入預設類別、啟動路由、註冊離線快取。
 import { ensureDefaults } from './services/categories.js';
 import { generateDue } from './services/recurring.js';
-import { syncGist } from './services/inbox.js';
+import { syncAll } from './services/inbox.js';
 import { refresh, startRouter } from './router.js';
 import { confirmDialog, esc, toast } from './views/components.js';
 import { PREVIEW } from './config.js';
@@ -41,21 +41,26 @@ function mountPreviewBar(view) {
 
 let lastSync = 0;
 
-/** 從 Apple Pay 收件匣同步（最多一分鐘一次）；有新紀錄就重畫目前頁面 */
+/** 從刷卡自動記帳的收件匣同步（最多一分鐘一次）；有新紀錄就重畫目前頁面 */
 async function runInbox() {
   if (PREVIEW || !navigator.onLine || Date.now() - lastSync < 60_000) return;
   lastSync = Date.now();
   try {
-    const r = await syncGist();
+    const r = await syncAll();
     if (r?.added || r?.pending) {
       refresh();
       const parts = [];
       if (r.added) parts.push(`記入 ${r.added} 筆`);
-      if (r.pending) parts.push(`${r.pending} 筆待補金額（設定 → Apple Pay）`);
-      toast(`Apple Pay：${parts.join('，')}`);
+      if (r.pending) parts.push(`${r.pending} 筆待補金額（設定 → 刷卡自動記帳）`);
+      toast(`刷卡自動記帳：${parts.join('，')}`);
     }
   } catch (err) {
-    console.warn('Apple Pay 同步失敗', err);
+    // 有一個來源失敗時，其他來源記到的照樣提示
+    if (err.partial?.added) {
+      refresh();
+      toast(`刷卡自動記帳：記入 ${err.partial.added} 筆（有一個來源同步失敗）`);
+    }
+    console.warn('刷卡自動記帳同步失敗', err);
   }
 }
 
