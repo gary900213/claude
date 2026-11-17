@@ -43,7 +43,7 @@ MIN_W, MAX_W, SL_BUF = 0.3, 3.0, 0.25
 MAX_BARS = 32
 ZONE_EXPIRE = 96  # 已突破的區間最多等 96 根（1 天）回踩
 MAKER, TAKER, SLIP = 0.0002, 0.0005, 0.0002
-BLUE, ORANGE, AQUA, RED, TEXT_2 = "#2a78d6", "#eb6834", "#1baf7a", "#e34948", "#52514e"
+BLUE, ORANGE, AQUA, RED, VIOLET, TEXT_2 = "#2a78d6", "#eb6834", "#1baf7a", "#e34948", "#6250d6", "#52514e"
 
 
 def load_15m(symbol: str, market: str) -> pd.DataFrame:
@@ -76,7 +76,9 @@ def pivots(values: np.ndarray, n: int, high: bool) -> list[tuple[int, float]]:
     return out
 
 
-def backtest(x: pd.DataFrame, pivot_n: int = PIVOT_N) -> pd.DataFrame:
+def backtest(x: pd.DataFrame, pivot_n: int = PIVOT_N, min_stop: float = 0.0,
+             max_bars: int = MAX_BARS) -> pd.DataFrame:
+    """min_stop：停損距離下限（價格比例）。結構停損比它近時，停損往外拉到這個距離（停利同步拉遠，維持 1:1）。"""
     o, h, lo, c, atr = (x[k].values for k in ("open", "high", "low", "close", "atr"))
     ph = pivots(h, pivot_n, True)
     pl = pivots(lo, pivot_n, False)
@@ -109,13 +111,14 @@ def backtest(x: pd.DataFrame, pivot_n: int = PIVOT_N) -> pd.DataFrame:
                 why, cost = "停損", TAKER + SLIP
             elif hit_tp:
                 exit_px, why, cost = tp, "停利", MAKER
-            elif t - t0 >= MAX_BARS:
+            elif t - t0 >= max_bars:
                 exit_px, why, cost = c[t], "時間到", TAKER + SLIP
             if exit_px is not None:
                 ret = side * (exit_px / entry - 1) - MAKER - cost
                 rows.append({"entry_time": x.index[t0], "exit_time": x.index[t], "side": side, "entry": entry,
                              "sl": sl, "tp": tp, "ret": ret, "risk": abs(entry - sl) / entry,
-                             "risk_atr": abs(entry - sl) / atr[t0], "result": why})
+                             "risk_atr": abs(entry - sl) / atr[t0], "result": why,
+                             "zone_top": pos["top"], "zone_bot": pos["bot"], "exit_px": exit_px})
                 pos = None
         # 2) 更新已確認的波段點（只用到 t 為止確認的）
         # 已突破、正在等回踩的區間不被新的波段點取代（突破時的高點本身會變成新的前高）
@@ -140,14 +143,18 @@ def backtest(x: pd.DataFrame, pivot_n: int = PIVOT_N) -> pd.DataFrame:
                     beyond = o[t] <= far if side > 0 else o[t] >= far
                     if not beyond:
                         sl = far - side * SL_BUF * atr[t]
+                        if abs(entry - sl) < min_stop * entry:
+                            sl = entry - side * min_stop * entry
                         risk = abs(entry - sl)
-                        pos = {"side": side, "entry": entry, "sl": sl, "tp": entry + side * risk, "t0": t}
+                        pos = {"side": side, "entry": entry, "sl": sl, "tp": entry + side * risk, "t0": t,
+                               "top": z["top"], "bot": z["bot"]}
                         # 進場那根只檢查停損
                         if (lo[t] <= sl) if side > 0 else (h[t] >= sl):
                             rows.append({"entry_time": x.index[t], "exit_time": x.index[t], "side": side,
                                          "entry": entry, "sl": sl, "tp": pos["tp"],
                                          "ret": side * (sl / entry - 1) - MAKER - TAKER - SLIP,
-                                         "risk": risk / entry, "risk_atr": risk / atr[t], "result": "停損"})
+                                         "risk": risk / entry, "risk_atr": risk / atr[t], "result": "停損",
+                                         "zone_top": z["top"], "zone_bot": z["bot"], "exit_px": sl})
                             pos = None
                     zone[side] = None  # 每個區間只做一次
                     continue
@@ -210,7 +217,7 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     sets = {"PAXG 現貨（2020-08 起）": load_15m("PAXGUSDT", "spot"),
             "XAUUSDT 合約（2025-12 起）": load_15m("XAUUSDT", "futures")}
-    rows, yearly, sens, sample = [], {}, [], None
+    rows, yearly, sens, widen, sample = [], {}, [], [], None
     for name, x in sets.items():
         years = (x.index[-1] - x.index[0]).days / 365
         t = backtest(x)
@@ -232,8 +239,22 @@ def main() -> int:
             tn = backtest(x, n)
             sens.append({"數據": name, "波段點左右各幾根": n, "筆數": len(tn), "勝率": f"{(tn['ret'] > 0).mean():.1%}",
                          "每筆期望值（R）": f"{(tn['ret'] / tn['risk']).mean():+.3f}"})
+        for ms in (0.0, 0.003, 0.005, 0.008, 0.010):
+            for mb in (32, 96):
+                tw = backtest(x, min_stop=ms, max_bars=mb)
+                rw = tw["ret"] / tw["risk"]
+                cw = (MAKER + (TAKER + SLIP + MAKER) / 2) / tw["risk"]
+                widen.append({"數據": name.split("（")[0], "停損下限": "結構停損" if ms == 0 else f"{ms:.1%}",
+                              "持有上限": f"{mb // 4} 小時", "每年筆數": round(len(tw) / years),
+                              "勝率": f"{(tw['ret'] > 0).mean():.1%}",
+                              "時間到出場": f"{(tw['result'] == '時間到').mean():.0%}",
+                              "成本（R）": f"{cw.median():.2f}", "未扣成本（R）": f"{(rw + cw).mean():+.3f}",
+                              "扣成本後（R）": f"{rw.mean():+.3f}"})
         if name.startswith("XAU"):
             sample = (x, t)
+            plot_trades(x, t, OUT / "trades_default.png", "XAUUSDT 15 分鐘：原始規則（結構停損，1:1）")
+            plot_trades(x, backtest(x, min_stop=0.005, max_bars=96), OUT / "trades_wide.png",
+                        "XAUUSDT 15 分鐘：停損至少 0.5%、停利同距離（1:1），最多持有 24 小時")
     table = pd.DataFrame(rows)
     yr = pd.concat({k: v.rename(columns={"size": "筆數", "mean": "期望值R"}) for k, v in yearly.items()}, axis=1)
     yr = yr.round(3)
@@ -292,6 +313,20 @@ def main() -> int:
         "",
         pd.DataFrame(sens).to_markdown(index=False),
         "",
+        "## 停損停利一起拉遠（維持 1:1）",
+        "",
+        "結構停損比下限近時，把停損拉到下限距離，停利同步拉遠。這是看過主結果後才做的探索。",
+        "",
+        pd.DataFrame(widen).to_markdown(index=False),
+        "",
+        "原始規則的交易範例：",
+        "",
+        "![原始規則](trades_default.png)",
+        "",
+        "停損至少 0.5% 的交易範例：",
+        "",
+        "![停損拉遠](trades_wide.png)",
+        "",
         "## 限制",
         "",
         "- 15 分鐘 K 線看不到 K 線內的先後順序；同一根同時碰到停利停損一律算停損（保守）。",
@@ -306,3 +341,53 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# ---------------------------------------------------------------- 畫出個別交易（K 線＋區間＋停損停利）
+
+def candles(ax, x: pd.DataFrame) -> None:
+    """簡單的 K 線：漲 = 空心藍、跌 = 實心橙（不用紅綠，色盲也看得出來）。"""
+    xs = mdates.date2num(x.index.to_pydatetime())
+    w = (xs[1] - xs[0]) * 0.7 if len(xs) > 1 else 0.005
+    for xi, (o, h, lo, c) in zip(xs, x[["open", "high", "low", "close"]].values):
+        up = c >= o
+        color = BLUE if up else ORANGE
+        ax.vlines(xi, lo, h, color=color, lw=0.8)
+        ax.add_patch(plt.Rectangle((xi - w / 2, min(o, c)), w, max(abs(c - o), 1e-9), facecolor="none" if up else color,
+                                   edgecolor=color, lw=0.8))
+    ax.xaxis_date()
+
+
+def plot_trades(x: pd.DataFrame, trades: pd.DataFrame, path: Path, title: str, n: int = 6) -> None:
+    wins = trades[trades["result"] == "停利"].tail(n // 2)
+    losses = trades[trades["result"] == "停損"].tail(n - len(wins))
+    pick = pd.concat([wins, losses]).sort_values("entry_time")
+    rows = int(np.ceil(len(pick) / 2))
+    fig, axes = plt.subplots(rows, 2, figsize=(12, 3.6 * rows))
+    axes = np.atleast_1d(axes).ravel()
+    bar = x.index[1] - x.index[0]
+    for ax, (_, tr) in zip(axes, pick.iterrows()):
+        win = x.loc[tr["entry_time"] - 40 * bar: tr["exit_time"] + 8 * bar]
+        candles(ax, win)
+        t0, t1 = mdates.date2num(tr["entry_time"]), mdates.date2num(tr["exit_time"] + bar)
+        ax.axhspan(tr["zone_bot"], tr["zone_top"], color=VIOLET, alpha=0.12, lw=0)
+        ax.hlines(tr["sl"], t0, t1, colors=RED, lw=1.5)
+        ax.hlines(tr["tp"], t0, t1, colors=AQUA, lw=1.5)
+        ax.hlines(tr["entry"], t0, t1, colors=TEXT_2, lw=1.0, linestyles="--")
+        ax.scatter([t0], [tr["entry"]], marker="^" if tr["side"] > 0 else "v", s=80, color=TEXT_2, zorder=4)
+        ax.scatter([mdates.date2num(tr["exit_time"])], [tr["exit_px"]], marker="x", s=60, color=TEXT_2, zorder=4)
+        side = "做多" if tr["side"] > 0 else "做空"
+        ax.set_title(f"{tr['entry_time']:%Y-%m-%d %H:%M} {side}｜停損距離 {tr['risk']:.2%}｜"
+                     f"{tr['result']} {tr['ret'] / tr['risk']:+.2f}R", fontsize=10)
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=4))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%m/%d %H:%M"))
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:,.1f}"))
+        ax.grid(alpha=0.4)
+    for ax in axes[len(pick):]:
+        ax.set_visible(False)
+    fig.suptitle(title, x=0.01, ha="left", fontsize=12, fontweight="bold")
+    fig.text(0.01, 0.003, "紫色帶 = 前高與前前高的區間；綠線 = 停利；紅線 = 停損；虛線 = 進場價；▲▼ = 進場；× = 出場。"
+                          "K 線：空心藍 = 漲、實心橙 = 跌", color=TEXT_2, fontsize=8)
+    fig.tight_layout(rect=(0, 0.02, 1, 0.97))
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
