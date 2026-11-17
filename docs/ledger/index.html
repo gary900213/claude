@@ -16,7 +16,7 @@
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
-  <main id="view" class="view"><p class="empty">載入中…</p></main>
+  <main id="view" class="view"><p class="empty loading">載入中…</p></main>
 
   <a class="fab" href="#add" aria-label="記一筆">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -42,6 +42,15 @@
   </nav>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    // 程式載入失敗時，不要一直停在「載入中」
+    setTimeout(function () {
+      var v = document.getElementById('view');
+      if (v && v.querySelector('.loading')) {
+        v.innerHTML = '<p class="empty error">記帳本載入失敗，請重新整理頁面再試一次。</p>';
+      }
+    }, 8000);
+  </script>
   <noscript><p class="empty">請啟用 JavaScript 才能使用記帳本。</p></noscript>
 </body>
 </html>
