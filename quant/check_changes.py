@@ -1,4 +1,4 @@
-"""檢查紙上交易（BTC，v1／v2）最近有沒有換倉，給每日聊天通知用。
+"""檢查紙上交易（v1／v2：BTC；v3：BTC＋黃金）最近有沒有換倉，給每日聊天通知用。
 
 只讀 GitHub Actions 寫好的紀錄，不會產生或修改任何訊號。
 
@@ -52,7 +52,36 @@ def check(days: int = 2, now: pd.Timestamp | None = None) -> dict:
             "changes": [{"date": f"{d:%Y-%m-%d}", "from": float(prev.loc[d]), "to": float(pos.loc[d])}
                         for d in recent.index],
         }
+    v3 = check_v3(days, now)
+    if v3:
+        out["versions"]["v3"] = v3
     return out
+
+
+def check_v3(days: int, now: pd.Timestamp) -> dict | None:
+    """v3（BTC＋黃金）：兩條腿各自的倉位與最近換倉。"""
+    from . import paper_v3
+    path = paper.ROOT / "data" / "paper_v3" / "signals.csv"
+    if not path.exists():
+        return None
+    sig = pd.read_csv(path, parse_dates=["signal_date", "generated_at_utc"])
+    pos = paper_v3.executed(sig, pd.DatetimeIndex([now.normalize()]))
+    last = sig.iloc[-1]
+    changes = []
+    for leg, name in (("btc", "BTC"), ("gold", "黃金")):
+        s = pos[leg]
+        prev = s.shift(1).fillna(0.0)
+        moved = s[(s - prev).abs() > 1e-9]
+        for d in moved[moved.index >= now.normalize() - pd.Timedelta(days=days)].index:
+            changes.append({"leg": name, "date": f"{d:%Y-%m-%d}", "from": float(prev.loc[d]), "to": float(s.loc[d])})
+    return {"latest_signal_date": f"{last['signal_date']:%Y-%m-%d}",
+            "latest_generated_utc": f"{last['generated_at_utc']:%Y-%m-%d %H:%M}",
+            "btc": {"target": float(last["target_btc"]), "held": float(pos["btc"].iloc[-1]),
+                    "trend": float(last["btc_trend"]), "weight": float(last["w_btc"]), "close": float(last["btc_close"])},
+            "gold": {"target": float(last["target_gold"]), "held": float(pos["gold"].iloc[-1]),
+                     "trend": float(last["gold_trend"]), "weight": float(last["w_gold"]),
+                     "close": float(last["gold_close"])},
+            "changes": changes}
 
 
 # ---------------------------------------------------------------- 恐慌賣選擇權提醒（見 docs/vrp）

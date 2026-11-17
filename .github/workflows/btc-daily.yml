@@ -53,6 +53,7 @@ jobs:
         run: |
           python -m quant.paper --version v1
           python -m quant.paper --version v2
+          python -m quant.paper_v3
 
       - name: Commit results
         run: |

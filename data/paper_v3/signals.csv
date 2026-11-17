@@ -1,0 +1,2 @@
+signal_date,generated_at_utc,strategy,btc_close,btc_trend,btc_pos,gold_close,gold_trend,gold_pos,w_btc,w_gold,target_btc,target_gold
+2026-11-15 00:00:00+00:00,2026-11-17 09:26:08.921089+00:00,v3-2026-11-17,65309.8,-0.3333333333333333,0.0,3887.59,-1.0,0.0,0.2877156028981379,0.7122843971018621,0.0,0.0
