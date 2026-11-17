@@ -11,7 +11,7 @@ const TEMPLATE = '{"amount":"〔金額〕","merchant":"〔商家〕","time":"〔
 
 export async function render(el) {
   el.innerHTML = `
-    ${subHeader('Apple Pay 自動記帳')}
+    ${subHeader('刷卡自動記帳')}
     <section class="card">
       <div class="section-head"><h2>收件匣（GitHub Gist）</h2></div>
       <form class="gist-form" data-gist-form novalidate>
@@ -29,7 +29,7 @@ export async function render(el) {
 
     <section class="card" data-pending-card hidden>
       <div class="section-head"><h2>待補金額</h2></div>
-      <p class="hint">這些交易捷徑沒有帶到金額，點「補記」填上金額就好。</p>
+      <p class="hint">這些交易沒有讀到台幣金額（例如外幣消費、捷徑沒帶到金額），點「補記」填上金額就好。</p>
       <ul class="tx-list" data-pending></ul>
     </section>
 
@@ -43,8 +43,22 @@ export async function render(el) {
 
     <section class="card" data-learned-card hidden>
       <div class="section-head"><h2>記住的商店分類</h2></div>
-      <p class="hint">改過 Apple Pay 紀錄的類別後，同一家店（含其他分店）之後會自動用這個類別。</p>
+      <p class="hint">改過自動記帳紀錄的類別後，同一家店（含其他分店）之後會自動用這個類別。</p>
       <ul class="cat-rows" data-learned></ul>
+    </section>
+
+    <section class="card guide">
+      <div class="section-head"><h2>選一種方式</h2></div>
+      <table class="compare">
+        <thead><tr><th></th><th>A. 感應付款</th><th>B. 銀行刷卡通知</th></tr></thead>
+        <tbody>
+          <tr><th>實體店 Apple Pay 感應</th><td>✓</td><td>✓</td></tr>
+          <tr><th>網購、App 內用 Apple Pay</th><td>✗</td><td>✓</td></tr>
+          <tr><th>實體卡、網路刷卡</th><td>✗</td><td>✓</td></tr>
+          <tr><th>需要</th><td>只要 iPhone</td><td>銀行要開簡訊或 Email 刷卡通知</td></tr>
+        </tbody>
+      </table>
+      <p>建議用 <b>B</b>，什麼刷卡都抓得到。<b>A、B 不要同時開</b>，不然實體感應的那筆會記兩次。兩種方式的第 1、2 步一樣。</p>
     </section>
 
     <section class="card guide">
@@ -61,7 +75,7 @@ export async function render(el) {
         <li>Expiration 選久一點（例如 1 年），Account permissions 裡只把 <b>Gists</b> 設成 <b>Read and write</b>，其他都不用開。</li>
         <li>產生後複製那串 <span class="mono">github_pat_…</span>，等一下貼到捷徑裡。</li>
       </ol>
-      <h3>3. iPhone 捷徑自動化</h3>
+      <h3>3A. 感應付款：捷徑「交易」自動化</h3>
       <ol>
         <li>打開「捷徑」App → 下方「自動化」→ 右上「＋」→ 選「<b>交易</b>」。</li>
         <li>勾選要記帳的卡片，選「<b>立即執行</b>」，按下一步 →「新增空白捷徑」。</li>
@@ -75,12 +89,19 @@ export async function render(el) {
         </li>
         <li>完成。之後用 Apple Pay 感應付款，打開記帳本就會自動記上。</li>
       </ol>
+      <h3>3B. 銀行刷卡通知：捷徑「訊息」或「電子郵件」自動化</h3>
+      <ol>
+        <li>先在銀行 App 或網銀開啟<b>刷卡簡訊通知</b>或 <b>Email 消費通知</b>（Email 通常免費）。</li>
+        <li>「捷徑」App →「自動化」→「＋」→ 選「<b>訊息</b>」（簡訊）或「<b>電子郵件</b>」。寄件人選銀行，或「訊息包含」填 <span class="mono">消費</span>；選「<b>立即執行</b>」→「新增空白捷徑」。</li>
+        <li>加入動作「<b>取得 URL 內容</b>」，網址、方法、標頭都和 3A 一樣；要求本文選 <b>JSON</b>，欄位 <span class="mono">body</span>（文字）的值直接選「<b>捷徑輸入</b>」（電子郵件的話選它的「內文」）。</li>
+        <li>完成。記帳本會從通知裡讀出金額、商店和日期。退款、驗證碼、帳單通知會自動略過；外幣消費會放到「待補金額」，等你填台幣金額。</li>
+      </ol>
       <h3>不想用 GitHub？</h3>
-      <p>第 3 步的「取得 URL 內容」改成「<b>附加到文字檔</b>」，存到 iCloud 雲碟（例如 <span class="mono">記帳收件匣.txt</span>），要記帳時用上面的「從檔案匯入」選這個檔案。</p>
+      <p>3A 的「取得 URL 內容」改成「<b>附加到文字檔</b>」，存到 iCloud 雲碟（例如 <span class="mono">記帳收件匣.txt</span>），要記帳時用上面的「從檔案匯入」選這個檔案。</p>
       <h3>隱私</h3>
       <p>Secret gist 不會出現在搜尋或你的個人頁面，但<b>知道網址的人看得到</b>內容（金額、商店、時間）。不要把 Gist 網址分享出去。權杖只放在你手機的捷徑裡，記帳本不會存。</p>
       <h3>限制</h3>
-      <p>只有在實體商店<b>感應付款</b>會觸發，網購的 Apple Pay 不會。有些卡片可能不會帶入金額，會放在「待補金額」。</p>
+      <p>3A 只有在實體商店<b>感應付款</b>會觸發，網購的 Apple Pay 不會。3B 依各家銀行通知的寫法解析，讀不到金額的會放在「待補金額」；如果你的銀行通知常常讀錯，把通知內容（金額、卡號可以改掉）傳給開發者調整。</p>
     </section>`;
 
   const form = el.querySelector('[data-gist-form]');

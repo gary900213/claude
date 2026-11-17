@@ -376,6 +376,10 @@ h1, h2, h3 { margin: 0; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; background: var(--bg); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
 .copy-box { display: flex; align-items: center; gap: 8px; margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: var(--bg); }
 .copy-box code { flex: 1; min-width: 0; font-size: .8rem; overflow-wrap: anywhere; user-select: all; }
+.compare { width: 100%; border-collapse: collapse; font-size: .85rem; margin-bottom: 10px; }
+.compare th, .compare td { padding: 6px 4px; border-top: 1px solid var(--line); text-align: center; }
+.compare thead th { border-top: 0; color: var(--muted); font-weight: 600; }
+.compare tbody th { text-align: left; font-weight: 500; }
 .pending-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
 .pending-row + .pending-row { border-top: 1px solid var(--line); }
 .hint.error { color: var(--danger); }

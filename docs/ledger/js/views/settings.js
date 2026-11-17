@@ -33,7 +33,7 @@ export async function render(el) {
       </a>
       <a class="menu-row" href="#applepay">
         <span class="cat-icon" aria-hidden="true">📲</span>
-        <span class="cat-row-name">Apple Pay 自動記帳<small data-applepay-info></small></span>
+        <span class="cat-row-name">刷卡自動記帳<small data-applepay-info></small></span>
         <span class="chev" aria-hidden="true">›</span>
       </a>
       <a class="menu-row" href="#recurring">
@@ -99,7 +99,7 @@ export async function render(el) {
     ]);
     el.querySelector('[data-applepay-info]').textContent = inbox.gistId
       ? inbox.lastError ? '同步失敗，點進去看原因' : '已設定，打開 App 時自動同步'
-      : '刷卡後自動記帳（需要設定一次）';
+      : 'Apple Pay 或刷卡通知自動記帳（需要設定一次）';
     const total = budgets.find((b) => b.id === 'total');
     el.querySelector('[data-budget-info]').textContent = total
       ? `每月 ${formatAmount(total.amount)}`

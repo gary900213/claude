@@ -71,3 +71,36 @@ test('toTransaction', () => {
     source: 'applepay', createdAt: 5, updatedAt: 5,
   });
 });
+
+test('parseNotice：各種刷卡通知寫法（範例文字，非真實銀行格式）', async () => {
+  const { parseNotice } = await import('../../docs/ledger/js/domain/inbox.js');
+  const today = '2026-11-17';
+  assert.deepEqual(
+    parseNotice('【某銀行】您的信用卡末四碼1234於11/17 14:22在UBER EATS消費NT$356，如有疑問請洽客服。', today),
+    { amount: 356, merchant: 'UBER EATS', date: '2026-11-17' },
+  );
+  assert.deepEqual(
+    parseNotice('刷卡通知:卡號末4碼5678,2026/11/16 09:12,交易金額新臺幣1,280元,特店名稱:台灣高鐵網路購票', today),
+    { amount: 1280, merchant: '台灣高鐵網路購票', date: '2026-11-16' },
+  );
+  assert.deepEqual(
+    parseNotice('信用卡消費通知 11月15日 金額：NT$ 99 商店：APPLE.COM/BILL', today),
+    { amount: 99, merchant: 'APPLE.COM/BILL', date: '2026-11-15' },
+  );
+  assert.deepEqual(
+    parseNotice('您的卡片於12/30在 AMAZON 消費 USD 12.99', today),
+    { amount: null, merchant: 'AMAZON（USD）', date: '2025-12-30' },
+    '外幣不猜台幣；12/30 比今天晚，算去年',
+  );
+  assert.equal(parseNotice('刷退通知：您於11/10在ABC消費NT$500已刷退', today), null);
+  assert.equal(parseNotice('您的OTP驗證碼為123456，交易金額NT$300', today), null);
+  assert.equal(parseNotice('本期帳單金額NT$12,345，最低應繳1,235元', today), null);
+  assert.equal(parseNotice('您好，天氣變冷了', today), null);
+});
+
+test('parseInboxItem：留言是刷卡通知全文時也能解析', () => {
+  const item = parseInboxItem('您的信用卡於11/17在全家便利商店消費NT$85', 'g9', '2026-11-17');
+  assert.deepEqual(item, { key: 'g9', amount: 85, merchant: '全家便利商店', date: '2026-11-17' });
+  assert.equal(guessCategory(item.merchant, {}, cats), 'food');
+  assert.equal(parseInboxItem('刷退通知：您於11/10在ABC消費NT$500已刷退', 'g10'), null);
+});

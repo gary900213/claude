@@ -36,7 +36,7 @@ export function hashText(s) {
  * 解析一筆交易。key 是去重用的唯一鍵（同一筆不會記兩次）。
  * 回傳 { key, amount, merchant, date }；amount 可能是 null（捷徑沒帶到金額）。
  */
-export function parseInboxItem(raw, key) {
+export function parseInboxItem(raw, key, today = localToday()) {
   let obj = raw;
   if (typeof raw === 'string') {
     const text = raw.trim();
@@ -44,7 +44,16 @@ export function parseInboxItem(raw, key) {
     try {
       obj = JSON.parse(text);
     } catch {
-      // 不是 JSON：整行當成「商店 金額」之類的文字，盡量抓出金額
+      obj = null;
+    }
+    if (!obj || typeof obj !== 'object') {
+      // 不是 JSON：可能是銀行的刷卡通知（簡訊、Email），或是「商店 金額」這種簡短文字
+      // 退款、驗證碼、帳單通知：不是一筆消費，略過
+      if (IGNORE_WORDS.test(toHalfWidth(text))) return null;
+      if (looksLikeNotice(text)) {
+        const n = parseNotice(text, today);
+        return n ? { key: key ?? `h${hashText(text)}`, ...n } : null;
+      }
       obj = { merchant: text.replace(/(NT)?\$?\s*\d[\d,.]*\s*(元|TWD)?/i, '').trim(), amount: text };
     }
   }
@@ -55,6 +64,91 @@ export function parseInboxItem(raw, key) {
     amount: parseAmountText(obj.amount),
     merchant,
     date: parseDateText(obj.time ?? obj.date),
+  };
+}
+
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ---------- 銀行刷卡通知 ----------
+
+const PURCHASE_WORDS = /消費|刷卡|交易|扣款|付款|支付|purchase|payment/i;
+const IGNORE_WORDS = /刷退|退款|退貨|取消交易|交易取消|驗證碼|otp|密碼|額度|繳款|帳單金額|最低應繳/i;
+const FOREIGN = /(USD|JPY|EUR|GBP|KRW|CNY|HKD|SGD|AUD|美元|美金|日圓|日幣|歐元|韓元|人民幣|港幣)\s*\$?\s*\d/i;
+
+const toHalfWidth = (s) =>
+  s.replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/：/g, ':').replace(/，/g, ',').replace(/＄/g, '$').replace(/／/g, '/').replace(/　/g, ' ');
+
+/** 看起來像刷卡通知（有「消費」「刷卡」之類的字，而且不是退款、驗證碼、帳單） */
+export function looksLikeNotice(text) {
+  const t = toHalfWidth(text);
+  return PURCHASE_WORDS.test(t) && !IGNORE_WORDS.test(t);
+}
+
+/** 通知裡的金額：只認有幣別或「金額」字樣的數字，避免把卡號末四碼當成金額 */
+function noticeAmount(t) {
+  const patterns = [
+    /(?:NT\$|NTD|TWD|新[臺台]幣)\s*:?\s*([\d,]+(?:\.\d+)?)/i,
+    /金額\s*:?\s*(?:NT\$|NTD|TWD|新[臺台]幣)?\s*\$?\s*([\d,]+(?:\.\d+)?)/i,
+    /([\d,]+(?:\.\d+)?)\s*元/,
+    /消費\s*\$\s*([\d,]+(?:\.\d+)?)/,
+  ];
+  for (const re of patterns) {
+    const m = t.match(re);
+    if (m) return parseAmountText(m[1]);
+  }
+  return null;
+}
+
+const DATE_LIKE = /^[\d/:\s.-]+$/;
+
+function noticeMerchant(t) {
+  const patterns = [
+    /(?:商店|特店|商家|店家|消費地點|交易地點|merchant)(?:名稱)?\s*:\s*([^\n,。;；]+)/i,
+    /在\s*([^\n,。;；]+?)\s*(?:消費|刷卡|交易|扣款|付款)/,
+    /於\s*([^\n,。;；]+?)\s*(?:消費|刷卡|交易|扣款|付款)/,
+  ];
+  for (const re of patterns) {
+    const m = t.match(re);
+    if (!m) continue;
+    // 「於 11/17 14:22 在 XXX 消費」這種，抓到的是日期就不算
+    const name = m[1].replace(/^\d{1,4}[/-]\d{1,2}([/-]\d{1,2})?\s*(\d{1,2}:\d{2}(:\d{2})?)?\s*/, '').trim();
+    if (name && !DATE_LIKE.test(name)) return name.slice(0, 60);
+  }
+  return '';
+}
+
+/** 通知裡的日期；只有月日時用 today 推年份（推出來比今天晚就算去年） */
+function noticeDate(t, today) {
+  const full = parseDateText(t);
+  if (full) return full;
+  const m = t.match(/(?:^|[^\d/])(\d{1,2})\s*[/月]\s*(\d{1,2})(?:日|[^\d/]|$)/);
+  if (!m) return null;
+  let year = Number(today.slice(0, 4));
+  let date = `${year}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  if (date > today) {
+    year -= 1;
+    date = `${year}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  }
+  return isValidDate(date) ? date : null;
+}
+
+/**
+ * 解析一則刷卡通知。外幣消費不猜台幣金額（amount 為 null，放到待補金額）。
+ * 回傳 { amount, merchant, date }；不像消費通知時回傳 null。
+ */
+export function parseNotice(text, today = localToday()) {
+  const t = toHalfWidth(String(text ?? ''));
+  if (!looksLikeNotice(t)) return null;
+  const foreign = t.match(FOREIGN);
+  const merchant = noticeMerchant(t);
+  return {
+    amount: foreign ? null : noticeAmount(t),
+    merchant: foreign ? `${merchant || '海外消費'}（${foreign[1].toUpperCase()}）` : merchant || '刷卡消費',
+    date: noticeDate(t, today),
   };
 }
 
