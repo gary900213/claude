@@ -1,12 +1,12 @@
 {
-  "signal_date": "2026-11-17",
-  "generated_at_utc": "2026-11-18 07:26",
+  "signal_date": "2026-11-18",
+  "generated_at_utc": "2026-11-19 20:35",
   "target_pos": 0.0,
-  "close": 64921.0,
+  "close": 63036.8,
   "trend": -1.0,
-  "vol_scale": 0.9412,
-  "ls_z90": 1.621,
-  "oi_z90": -1.339,
+  "vol_scale": 0.9284,
+  "ls_z90": 2.714,
+  "oi_z90": -0.523,
   "reasons_flat": [
     "趨勢分數 ≤ 0（不做多）"
   ],
