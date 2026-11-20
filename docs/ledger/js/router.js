@@ -1,0 +1,82 @@
+// hash 路由：只用英數字和連字號（「頁面-參數」），在任何網址環境都能正常傳遞。
+//   #home、#list、#list-2026-11、#stats、#stats-2026-11、#prefs（設定）、
+//   #add、#add-income、#edit-<id>、#budget、#recurring、#recurring-new、#recurring-<id>、#applepay
+import * as home from './views/home.js';
+import * as list from './views/list.js';
+import * as stats from './views/stats.js';
+import * as settings from './views/settings.js';
+import * as edit from './views/edit.js';
+import * as budget from './views/budget.js';
+import * as recurring from './views/recurring.js';
+import * as applepay from './views/applepay.js';
+import { esc } from './views/components.js';
+
+const views = { home, list, stats, prefs: settings, add: edit, edit, budget, recurring, applepay };
+
+// 子頁面在底部選單要亮哪一個分頁
+const TAB_OF = { budget: 'prefs', recurring: 'prefs', applepay: 'prefs' };
+
+let navigated = false;
+let renderToken = 0;
+
+export function parseHash(hash = location.hash) {
+  let h = hash.replace(/^#/, '');
+  try {
+    h = decodeURIComponent(h);
+  } catch {
+    // 網址編碼壞掉就照原樣使用
+  }
+  const i = h.indexOf('-');
+  const name = i < 0 ? h : h.slice(0, i);
+  const param = i < 0 ? '' : h.slice(i + 1);
+  return views[name] ? { name, param: param || null } : { name: 'home', param: null };
+}
+
+/** 回上一頁；如果是直接開啟這一頁（沒有上一頁），就回首頁 */
+export function goBack(fallback = '#home') {
+  if (navigated) history.back();
+  else location.replace(fallback);
+}
+
+/** 換頁但不留下瀏覽紀錄（例如切換月份） */
+export const replaceRoute = (hash) => location.replace(hash);
+
+let renderCurrent = () => {};
+
+/** 重畫目前的頁面（例如背景自動記入固定收支之後） */
+export const refresh = () => renderCurrent();
+
+export function startRouter(container) {
+  const render = async () => {
+    const token = ++renderToken;
+    const ctx = parseHash();
+    const view = views[ctx.name];
+    const tab = TAB_OF[ctx.name] ?? ctx.name;
+    // fullscreen 的頁面（新增／編輯表單）不顯示底部選單
+    const full = typeof view.fullscreen === 'function' ? view.fullscreen(ctx) : Boolean(view.fullscreen);
+    document.body.classList.toggle('fullscreen', full);
+    for (const a of document.querySelectorAll('.tabbar a')) {
+      a.toggleAttribute('aria-current', a.dataset.tab === tab);
+    }
+    const el = document.createElement('div');
+    el.className = `page page-${ctx.name}`;
+    let mounted;
+    try {
+      mounted = await view.render(el, ctx);
+    } catch (err) {
+      console.error(err);
+      el.innerHTML = `<p class="empty error">發生錯誤：${esc(err.message)}</p>`;
+    }
+    if (token !== renderToken) return; // 已經換到別頁了
+    container.replaceChildren(el);
+    window.scrollTo(0, 0);
+    if (typeof mounted === 'function') mounted();
+  };
+
+  renderCurrent = render;
+  window.addEventListener('hashchange', () => {
+    navigated = true;
+    render();
+  });
+  render();
+}

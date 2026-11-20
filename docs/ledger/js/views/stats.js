@@ -1,0 +1,127 @@
+// 統計：本月支出類別分佈、近 6 個月收支趨勢。
+import { listMonths } from '../services/ledger.js';
+import { listCategories } from '../services/categories.js';
+import { addMonths, formatAmount, formatSigned, isMonthStr, monthOf, monthRange, todayStr } from '../domain/format.js';
+import { changeRatio, daysElapsed, expenseThroughDay, groupByCategory, monthlyTrend, summarize } from '../domain/stats.js';
+import { replaceRoute } from '../router.js';
+import { categoryColors, emptyState, esc, monthSwitcher, summaryCards } from './components.js';
+import { drawBars, drawDonut } from './charts.js';
+
+const TREND_MONTHS = 6;
+
+export async function render(el, ctx) {
+  const month = isMonthStr(ctx.param) ? ctx.param : monthOf(todayStr());
+  const [trendTxs, cats] = await Promise.all([
+    listMonths(addMonths(month, -(TREND_MONTHS - 1)), month),
+    listCategories({ includeHidden: true }),
+  ]);
+  const monthTxs = trendTxs.filter((t) => monthOf(t.date) === month);
+  const summary = summarize(monthTxs);
+  const groups = groupByCategory(monthTxs, cats, 'expense');
+  const trend = monthlyTrend(trendTxs, month, TREND_MONTHS).map((r) => ({
+    ...r,
+    label: `${Number(r.month.slice(5))}月`,
+  }));
+  const colors = categoryColors(cats);
+  const today = todayStr();
+  const elapsed = daysElapsed(month, today);
+  const prev = trend.at(-2);
+  // 本月還沒結束時，和上個月「同期」（1 號到今天的日期）比，才不會永遠顯示比較少
+  const ongoing = month === monthOf(today);
+  const prevDays = Number(monthRange(prev.month)[1].slice(8));
+  const prevDay = Math.min(elapsed, prevDays);
+  const prevExpense = ongoing ? expenseThroughDay(trendTxs, prev.month, prevDay) : prev.expense;
+  const change = changeRatio(summary.expense, prevExpense);
+  const prevName = ongoing ? `${prev.label}同期` : prev.label;
+  const prevRange = ongoing
+    ? `${Number(prev.month.slice(5))}/1–${Number(prev.month.slice(5))}/${prevDay}`
+    : prev.label;
+  const insights = [
+    elapsed ? `<span class="pill">平均每天支出 <b>${formatAmount(Math.round(summary.expense / elapsed))}</b></span>` : '',
+    change === null
+      ? ''
+      : `<span class="pill ${change > 0 ? 'up' : 'down'}">支出比${prevName}${change > 0 ? '多' : '少'} <b>${Math.abs(Math.round(change * 100))}%</b>
+           <small>（${prevRange} ${formatAmount(prevExpense)}）</small></span>`,
+  ].join('');
+  const colorOf = (id) => colors.get(id) ?? '#94a3b8';
+
+  el.innerHTML = `
+    <header class="page-head">${monthSwitcher(month)}</header>
+    ${summaryCards(summary)}
+    ${insights ? `<div class="insights">${insights}</div>` : ''}
+
+    <section class="card">
+      <div class="section-head"><h2>支出分佈</h2></div>
+      ${
+        groups.length
+          ? `<canvas class="chart" data-chart="donut" role="img" aria-label="本月各類別支出佔比"></canvas>
+             <ul class="rank">
+               ${groups
+                 .map(
+                   (g) => `
+                 <li>
+                   <span class="rank-dot" style="background:${colorOf(g.categoryId)}"></span>
+                   <span class="rank-name">${esc(g.category?.icon ?? '❔')} ${esc(g.category?.name ?? '未知類別')}
+                     <small>${g.count} 筆</small></span>
+                   <span class="rank-pct">${(g.ratio * 100).toFixed(1)}%</span>
+                   <span class="rank-amt">${formatAmount(g.total)}</span>
+                   <span class="rank-bar"><i style="width:${(g.ratio * 100).toFixed(1)}%;background:${colorOf(g.categoryId)}"></i></span>
+                 </li>`,
+                 )
+                 .join('')}
+             </ul>`
+          : emptyState('這個月還沒有支出')
+      }
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>近 ${TREND_MONTHS} 個月收支</h2>
+        <span class="legend"><i class="income-bg"></i>收入 <i class="expense-bg"></i>支出</span>
+      </div>
+      <canvas class="chart" data-chart="bars" role="img" aria-label="近 ${TREND_MONTHS} 個月收入與支出長條圖"></canvas>
+      <table class="trend-table">
+        <thead><tr><th>月份</th><th>收入</th><th>支出</th><th>結餘</th></tr></thead>
+        <tbody>
+          ${trend
+            .slice()
+            .reverse()
+            .map(
+              (r) => `
+            <tr>
+              <td>${r.label}</td>
+              <td class="income">${formatAmount(r.income)}</td>
+              <td class="expense">${formatAmount(r.expense)}</td>
+              <td class="${r.balance < 0 ? 'expense' : ''}">${formatSigned(r.balance)}</td>
+            </tr>`,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </section>`;
+
+  el.addEventListener('click', (e) => {
+    const nav = e.target.closest('[data-month-nav]');
+    if (nav) replaceRoute(`#stats-${addMonths(month, Number(nav.dataset.monthNav))}`);
+  });
+
+  // 圖表要等元素放進畫面、量得到寬度之後才畫
+  return () => {
+    const draw = () => {
+      const donut = el.querySelector('[data-chart="donut"]');
+      if (donut) {
+        drawDonut(donut, groups.map((g) => ({ value: g.total, color: colorOf(g.categoryId) })), summary.expense);
+      }
+      drawBars(el.querySelector('[data-chart="bars"]'), trend);
+    };
+    draw();
+    const redraw = () => (el.isConnected ? draw() : cleanup());
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    const cleanup = () => {
+      window.removeEventListener('resize', redraw);
+      scheme.removeEventListener('change', redraw);
+    };
+    window.addEventListener('resize', redraw);
+    scheme.addEventListener('change', redraw);
+  };
+}
