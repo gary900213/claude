@@ -32,6 +32,19 @@
 > GitHub Actions 的機器在美國，Binance 會回 451 拒絕連線；程式會自動改用 OKX，所以不用處理。
 > 如果某個來源暫時失敗，報告頁的「資料狀態」會標示 ❌，其他圖照常更新。
 
+### 換倉寄信通知（目前未啟用）
+
+目前改由 Claude 的每日排程在對話中通知換倉（`python -m quant.check_changes`）。寄信程式 `quant/notify.py` 保留備用；要啟用時，把 notify 步驟加回 workflow，並設定：
+
+1. Google 帳戶 → 安全性 → 開啟「兩步驟驗證」→ 搜尋「應用程式密碼」，建立一組（16 碼）。
+2. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**，新增三個：
+   - `SMTP_USER`：你的 Gmail 地址
+   - `SMTP_PASSWORD`：剛建立的 16 碼應用程式密碼
+   - `MAIL_TO`：收件信箱（可用逗號分隔多個）
+3. **Actions → BTC daily report → Run workflow**，勾選「寄一封測試信」，確認收得到。
+
+信箱和密碼只存在 GitHub Secrets，不會出現在程式碼或 repo 裡。沒設定時，流程照常執行，只是不寄信。
+
 ## 在自己電腦上跑
 
 ```bash
@@ -104,6 +117,59 @@ python -m quant.paper
 ```
 
 訊號紀錄 `data/paper/signals.csv` 只會新增、不會改寫，每筆都記下產生時間；績效以「產生當天的 UTC 收盤」執行來結算。
+
+### 即時模式（零延遲，需在幣安 API 連得上的地方執行，例如台灣）
+
+GitHub Actions 的主機在美國，幣安 API 會回 451，只能用隔天才發布的歷史檔（延遲約 1 天）。
+在自己的電腦上執行即時模式，UTC 收盤（台灣 08:00）後就能產生當天的訊號：
+
+```bash
+git pull
+```
+
+```bash
+python -m quant.history
+```
+
+```bash
+python -m quant.live --capital 10000
+```
+
+- `--capital`：總資金（美元），報告會換算成要買賣多少 BTC。
+- 紀錄存在 `data/paper_live/`、報告在 `docs/paper_live/README.md`，和 GitHub Actions 的歷史檔模式（`data/paper/`）分開，不會互相衝突。
+- 連不上幣安 API 時會自動退回歷史檔模式（加 `--no-fallback` 可停用）。
+- 第一次使用建議先跑 `python -m quant.live --check`，確認 API 數據與歷史檔的定義一致（中位相對差應該接近 0）。
+
+**每天自動執行（Windows 工作排程器）**：建立基本工作，觸發程序選「每天 08:05」，動作選「啟動程式」，
+程式填 `python`，引數填 `-m quant.live --capital 10000`，起始位置填這個 repo 的資料夾。
+
+### 執行方式（入場點）研究
+
+```bash
+python -m quant.entry_study
+```
+
+報告在 `docs/entry/README.md`。結論：收盤後立刻市價成交最好；掛低價等回檔或分批買，平均反而更差（沒成交時追單的損失大於省下的價差）。
+倉位變化小於 0.10 倍不調整（不交易區間），交易次數從每年約 154 次降到 57 次，績效不變。
+
+### 多幣種驗證與資金費率套利
+
+```bash
+python -m quant.history ETHUSDT XRPUSDT BNBUSDT LTCUSDT LINKUSDT ADAUSDT
+```
+
+```bash
+python -m quant.run_multi
+```
+
+```bash
+python -m quant.carry
+```
+
+- `docs/multi/`：BTC 上凍結的策略原封不動套用到 6 個主流幣（最乾淨的樣本外測試）。結論：持倉量過濾只在 BTC 有效，散戶多空比過濾效果很弱，因此另開 v2（只用趨勢）紙上交易並行比較。
+- `docs/carry/`：現貨多＋永續空賺資金費率。歷史年化約 5～6%（以本金計），但集中在 2021 年；2025 年後每年只剩 1～2%，低於無風險利率。
+
+紙上交易 v2：`python -m quant.paper --version v2`（即時模式：`python -m quant.live --version v2`）。
 
 回測規則：第 D 天收盤的訊號只能賺第 D+1 天的報酬；扣除每單位換手 7 bps 成本與永續資金費率；ETF 流量往後挪一天（公布時間在美股收盤後）。
 

@@ -121,3 +121,51 @@ def test_paper_executes_on_generation_day():
     # 兩筆都在 07-20 產生 → 07-20 收盤執行最後一筆；07-18、07-19 不能有倉位
     assert pos.index.min() == pd.Timestamp("2026-07-20", tz="UTC")
     assert pos.loc["2026-07-20"] == 1.0 and pos.loc["2026-07-22"] == 1.0
+
+
+def test_apply_band_skips_small_changes_but_always_exits():
+    from quant.backtest import apply_band
+    pos = pd.Series([0.5, 0.55, 0.62, 0.3, 0.0, 0.05])
+    assert apply_band(pos, 0.1).tolist() == [0.5, 0.5, 0.62, 0.3, 0.0, 0.0]
+
+
+def test_order_instructions_today_buy():
+    from quant.paper import order_instructions
+    idx = pd.date_range("2026-11-08", periods=3, freq="D", tz="UTC")
+    pos = pd.Series([0.0, 0.0, 0.8], index=idx)
+    now = pd.Timestamp("2026-11-10 00:05", tz="UTC")
+    lines = order_instructions(pd.DataFrame(), pos, {"target_pos": 0.8, "close": 80000.0}, now, 10000)
+    text = "\n".join(lines)
+    assert "今天要買入 0.80 倍" in text and "8,000 美元" in text and "0.1000 BTC" in text
+    flat = order_instructions(pd.DataFrame(), pos * 0, {"target_pos": 0.0, "close": 80000.0}, now, None)
+    assert "尚未建倉" in flat[0]
+
+
+def test_multi_spot_version_pays_no_funding():
+    from quant.run_multi import strategies
+    idx = pd.date_range("2024-01-01", periods=300, freq="D", tz="UTC")
+    close = pd.Series(np.linspace(100, 300, 300), index=idx)  # 一路上漲 → 趨勢做多
+    d = pd.DataFrame({"close": close, "ret": close.pct_change(), "rv_30d": 0.5,
+                      "ls_z90": 0.0, "oi_z90": 0.0, "funding_day": 0.001}, index=idx)
+    res = strategies(d)
+    perp, spot = res["B 凍結策略（永續）"].daily, res["C 凍結策略（現貨）"].daily
+    assert perp["funding"].sum() > 0 and spot["funding"].sum() == 0
+    assert spot["cost"].sum() > perp["cost"].sum()  # 現貨手續費較高
+
+
+def test_v2_has_no_filters_and_separate_paths():
+    from quant import paper
+    d = _paper_frame()
+    d["ls_z90"] = 5.0  # 散戶極度看多：v1 會空手，v2 不受影響
+    v1 = paper.compute(d)
+    old = paper.STRATEGY
+    try:
+        paper.STRATEGY = paper.STRATEGIES["v2"]
+        v2 = paper.compute(d)
+    finally:
+        paper.STRATEGY = old
+    assert (v1["target_pos"] == 0).all()
+    assert (v2["target_pos"] > 0).any() and not v2["filter_ls"].any()
+    assert paper.paths("v1", False)[0].name == "paper"
+    assert paper.paths("v2", False)[0].name == "paper_v2"
+    assert paper.paths("v2", True)[0].name == "paper_live_v2"

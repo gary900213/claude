@@ -1,0 +1,17 @@
+{
+  "signal_date": "2026-11-18",
+  "generated_at_utc": "2026-11-19 20:35",
+  "strategy": "v3-2026-11-17",
+  "btc_close": 63036.8,
+  "btc_trend": -1.0,
+  "btc_pos": 0.0,
+  "gold_close": 3736.31,
+  "gold_trend": -1.0,
+  "gold_pos": 0.0,
+  "w_btc": 0.2878,
+  "w_gold": 0.7122,
+  "target_btc": 0.0,
+  "target_gold": 0.0,
+  "held_btc": 0.0,
+  "held_gold": 0.0
+}

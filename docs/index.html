@@ -21,9 +21,9 @@ figcaption { color:var(--fg2); font-size:.85rem; margin-top:4px; }
 table.data th, table.data td { padding:4px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
 </style></head><body><main>
 <h1>BTC 每日資金流與清算</h1>
-<div class="muted">更新時間：2026-11-09 08:30 UTC　·　全部使用免費公開資料</div>
-<div class="tiles"><div class="tile"><div class="lbl">紙上交易建議倉位</div><div class="val">空手</div><div class="sub">訊號日 2026-11-07　詳見 paper/</div></div><div class="tile"><div class="lbl">BTC 價格</div><div class="val">74,150</div><div class="sub">24h -2.31%</div></div><div class="tile"><div class="lbl">ETF 淨流入（最近交易日）</div><div class="val">-411.9M</div><div class="sub">2026-11-06　5 日合計 -1,282M</div></div><div class="tile"><div class="lbl">OKX 期貨持倉量</div><div class="val">$3.77B</div><div class="sub">24h -0.86%</div></div><div class="tile"><div class="lbl">資金費率（最新一期）</div><div class="val">0.0096%</div><div class="sub"></div></div><div class="tile"><div class="lbl">下方最大清算區（多單）</div><div class="val">73,300</div><div class="sub">約 $61.4M</div></div><div class="tile"><div class="lbl">上方最大清算區（空單）</div><div class="val">83,187</div><div class="sub">約 $21.6M</div></div></div>
-<figure><img src="img/etf_flows.png" alt="BTC 現貨 ETF 每日淨流入與累計淨流入" loading="lazy"><figcaption>BTC 現貨 ETF 每日淨流入與累計淨流入</figcaption></figure><figure><img src="img/liq_heatmap.png" alt="預估清算熱力圖（近 14 天）" loading="lazy"><figcaption>預估清算熱力圖（近 14 天）</figcaption></figure><figure><img src="img/liq_map.png" alt="預估清算地圖（現價 ±12%）" loading="lazy"><figcaption>預估清算地圖（現價 ±12%）</figcaption></figure><figure><img src="img/derivatives.png" alt="價格、持倉量、資金費率、多空比（近 14 天）" loading="lazy"><figcaption>價格、持倉量、資金費率、多空比（近 14 天）</figcaption></figure>
+<div class="muted">更新時間：2026-11-20 07:13 UTC　·　全部使用免費公開資料</div>
+<div class="tiles"><div class="tile"><div class="lbl">紙上交易 v1 建議倉位</div><div class="val">空手</div><div class="sub">訊號日 2026-11-18　詳見 paper/</div></div><div class="tile"><div class="lbl">紙上交易 v2 建議倉位</div><div class="val">空手</div><div class="sub">訊號日 2026-11-18　詳見 paper_v2/</div></div><div class="tile"><div class="lbl">BTC 價格</div><div class="val">61,936</div><div class="sub">24h -2.79%</div></div><div class="tile"><div class="lbl">ETF 淨流入（最近交易日）</div><div class="val">-582.3M</div><div class="sub">2026-11-19　5 日合計 -1,306M</div></div><div class="tile"><div class="lbl">OKX 期貨持倉量</div><div class="val">$3.10B</div><div class="sub">24h +1.27%</div></div><div class="tile"><div class="lbl">資金費率（最新一期）</div><div class="val">-0.0016%</div><div class="sub"></div></div><div class="tile"><div class="lbl">下方最大清算區（多單）</div><div class="val">58,859</div><div class="sub">約 $28.9M</div></div><div class="tile"><div class="lbl">上方最大清算區（空單）</div><div class="val">71,198</div><div class="sub">約 $11.4M</div></div></div>
+<figure><img src="img/etf_flows.png" alt="BTC 現貨 ETF 每日淨流入與累計淨流入" loading="lazy"><figcaption>BTC 現貨 ETF 每日淨流入與累計淨流入</figcaption></figure><figure><img src="img/liq_heatmap.png" alt="預估清算熱力圖（近 14 天）" loading="lazy"><figcaption>預估清算熱力圖（近 14 天）</figcaption></figure><figure><img src="img/liq_map.png" alt="預估清算地圖（現價 ±12%）" loading="lazy"><figcaption>預估清算地圖（現價 ±12%）</figcaption></figure><figure><img src="img/derivatives.png" alt="價格、持倉量、資金費率、多空比（近 14 天）" loading="lazy"><figcaption>價格、持倉量、資金費率、多空比（近 14 天）</figcaption></figure><figure><img src="img/liquidations_daily.png" alt="OKX 每日實際清算量（每天累積，歷史會越來越長）" loading="lazy"><figcaption>OKX 每日實際清算量（每天累積，歷史會越來越長）</figcaption></figure>
 <h2>近期每日數據</h2><div class="scroll"><table class="dataframe data">
   <thead>
     <tr style="text-align: right;">
@@ -39,14 +39,124 @@ table.data th, table.data td { padding:4px 10px; border-bottom:1px solid var(--l
   </thead>
   <tbody>
     <tr>
-      <th>2026-11-09</th>
-      <td>74,150</td>
+      <th>2026-11-20</th>
+      <td>61,936</td>
+      <td>3.10B</td>
+      <td>-0.0016%</td>
+      <td>3.20</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-11-19</th>
+      <td>61,949</td>
+      <td>3.01B</td>
+      <td>-0.0011%</td>
+      <td>3.38</td>
+      <td>26.9M</td>
+      <td>7.9M</td>
+      <td>-582.3M</td>
+    </tr>
+    <tr>
+      <th>2026-11-18</th>
+      <td>63,035</td>
+      <td>2.99B</td>
+      <td>0.0026%</td>
+      <td>3.56</td>
+      <td>20.7M</td>
+      <td>4.8M</td>
+      <td>-306.5M</td>
+    </tr>
+    <tr>
+      <th>2026-11-17</th>
+      <td>64,915</td>
+      <td>2.97B</td>
+      <td>0.0017%</td>
+      <td>2.85</td>
+      <td>8.5M</td>
+      <td>7.7M</td>
+      <td>-239.9M</td>
+    </tr>
+    <tr>
+      <th>2026-11-16</th>
+      <td>64,846</td>
+      <td>2.95B</td>
+      <td>0.0015%</td>
+      <td>2.57</td>
+      <td>7.8M</td>
+      <td>9.9M</td>
+      <td>+7.9M</td>
+    </tr>
+    <tr>
+      <th>2026-11-15</th>
+      <td>65,311</td>
+      <td>3.05B</td>
+      <td>-0.0009%</td>
+      <td>2.77</td>
+      <td>25.3M</td>
+      <td>24.1M</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-11-14</th>
+      <td>64,125</td>
+      <td>3.13B</td>
+      <td>0.0025%</td>
+      <td>2.71</td>
+      <td>51.8M</td>
+      <td>9.5M</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <th>2026-11-13</th>
+      <td>68,287</td>
+      <td>3.38B</td>
+      <td>0.0025%</td>
+      <td>3.24</td>
+      <td>61.8M</td>
+      <td>9.4M</td>
+      <td>-185.4M</td>
+    </tr>
+    <tr>
+      <th>2026-11-12</th>
+      <td>71,428</td>
+      <td>3.86B</td>
+      <td>0.0076%</td>
+      <td>3.27</td>
+      <td>32.2M</td>
+      <td>1.1M</td>
+      <td>-284.1M</td>
+    </tr>
+    <tr>
+      <th>2026-11-11</th>
+      <td>73,980</td>
       <td>3.77B</td>
-      <td>0.0059%</td>
-      <td>2.97</td>
-      <td>—</td>
-      <td>—</td>
-      <td>—</td>
+      <td>0.0080%</td>
+      <td>2.79</td>
+      <td>9.0M</td>
+      <td>5.2M</td>
+      <td>-299.8M</td>
+    </tr>
+    <tr>
+      <th>2026-11-10</th>
+      <td>73,769</td>
+      <td>3.80B</td>
+      <td>0.0065%</td>
+      <td>3.07</td>
+      <td>16.8M</td>
+      <td>3.5M</td>
+      <td>-95.0M</td>
+    </tr>
+    <tr>
+      <th>2026-11-09</th>
+      <td>75,320</td>
+      <td>3.79B</td>
+      <td>0.0058%</td>
+      <td>2.81</td>
+      <td>11.2M</td>
+      <td>9.3M</td>
+      <td>-201.0M</td>
     </tr>
     <tr>
       <th>2026-11-08</th>
@@ -67,116 +177,6 @@ table.data th, table.data td { padding:4px 10px; border-bottom:1px solid var(--l
       <td>—</td>
       <td>—</td>
       <td>—</td>
-    </tr>
-    <tr>
-      <th>2026-11-06</th>
-      <td>75,816</td>
-      <td>3.82B</td>
-      <td>0.0032%</td>
-      <td>3.05</td>
-      <td>—</td>
-      <td>—</td>
-      <td>-411.9M</td>
-    </tr>
-    <tr>
-      <th>2026-11-05</th>
-      <td>76,050</td>
-      <td>3.80B</td>
-      <td>0.0092%</td>
-      <td>2.87</td>
-      <td>—</td>
-      <td>—</td>
-      <td>-430.2M</td>
-    </tr>
-    <tr>
-      <th>2026-11-04</th>
-      <td>80,466</td>
-      <td>3.75B</td>
-      <td>0.0096%</td>
-      <td>1.54</td>
-      <td>—</td>
-      <td>—</td>
-      <td>+74.6M</td>
-    </tr>
-    <tr>
-      <th>2026-11-03</th>
-      <td>77,439</td>
-      <td>3.62B</td>
-      <td>0.0100%</td>
-      <td>2.38</td>
-      <td>—</td>
-      <td>—</td>
-      <td>-115.6M</td>
-    </tr>
-    <tr>
-      <th>2026-11-02</th>
-      <td>76,796</td>
-      <td>3.67B</td>
-      <td>0.0095%</td>
-      <td>2.69</td>
-      <td>—</td>
-      <td>—</td>
-      <td>-398.6M</td>
-    </tr>
-    <tr>
-      <th>2026-11-01</th>
-      <td>78,309</td>
-      <td>3.71B</td>
-      <td>0.0088%</td>
-      <td>2.39</td>
-      <td>—</td>
-      <td>—</td>
-      <td>—</td>
-    </tr>
-    <tr>
-      <th>2026-10-31</th>
-      <td>77,521</td>
-      <td>3.74B</td>
-      <td>0.0100%</td>
-      <td>2.62</td>
-      <td>—</td>
-      <td>—</td>
-      <td>—</td>
-    </tr>
-    <tr>
-      <th>2026-10-30</th>
-      <td>77,287</td>
-      <td>3.74B</td>
-      <td>0.0085%</td>
-      <td>2.92</td>
-      <td>—</td>
-      <td>—</td>
-      <td>-643.2M</td>
-    </tr>
-    <tr>
-      <th>2026-10-29</th>
-      <td>77,967</td>
-      <td>3.54B</td>
-      <td>0.0077%</td>
-      <td>2.32</td>
-      <td>—</td>
-      <td>—</td>
-      <td>+17.2M</td>
-    </tr>
-    <tr>
-      <th>2026-10-28</th>
-      <td>81,310</td>
-      <td>3.42B</td>
-      <td>0.0089%</td>
-      <td>1.92</td>
-      <td>—</td>
-      <td>—</td>
-      <td>+137.3M</td>
-    </tr>
-    <tr>
-      <th>2026-10-27</th>
-      <td>80,881</td>
-      <td>3.42B</td>
-      <td>0.0100%</td>
-      <td>2.07</td>
-      <td>—</td>
-      <td>—</td>
-      <td>+176.0M</td>
     </tr>
   </tbody>
 </table></div>

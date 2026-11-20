@@ -1,18 +1,17 @@
 {
-  "signal_date": "2026-11-07",
-  "generated_at_utc": "2026-11-09 08:29",
+  "signal_date": "2026-11-18",
+  "generated_at_utc": "2026-11-19 20:35",
   "target_pos": 0.0,
-  "close": 75836.0,
-  "trend": -0.3333333333333333,
-  "vol_scale": 1.1839,
-  "ls_z90": 2.878,
-  "oi_z90": -0.779,
+  "close": 63036.8,
+  "trend": -1.0,
+  "vol_scale": 0.9284,
+  "ls_z90": 2.714,
+  "oi_z90": -0.523,
   "reasons_flat": [
     "趨勢分數 ≤ 0（不做多）",
-    "散戶多空比 z = 2.88 > 1（過度看多）"
+    "散戶多空比 z = 2.71 > 1（過度看多）"
   ],
   "strategy": {
-    "version": "v1-2026-11-09",
     "trend_lookbacks": [
       20,
       60,
@@ -20,10 +19,14 @@
     ],
     "target_vol": 0.4,
     "max_leverage": 1.5,
+    "cost_bps": 7.0,
+    "rebalance_band": 0.1,
+    "version": "v1-2026-11-09",
     "filters": {
       "ls_z90": 1.0,
       "oi_z90": 1.0
     },
-    "cost_bps": 7.0
-  }
+    "description": "趨勢（20/60/120 日）× 波動率目標 40%（上限 1.5 倍），散戶多空比 z > 1 或持倉量水位 z > 1 時空手"
+  },
+  "source": "archive"
 }

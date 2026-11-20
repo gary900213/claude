@@ -226,13 +226,15 @@ def run(demo: bool = False, out: str | None = None) -> int:
 
     # 摘要數字
     tiles = []
-    paper_json = ROOT / "data" / "paper" / "latest.json"
-    if paper_json.exists():
+    for ver, folder in (("v1", "paper"), ("v2", "paper_v2")):
+        paper_json = ROOT / "data" / folder / "latest.json"
+        if not paper_json.exists():
+            continue
         try:
             p = json.loads(paper_json.read_text(encoding="utf-8"))
             pos = p["target_pos"]
-            tiles.append(("紙上交易建議倉位", f"{pos:.2f}x" if pos > 0 else "空手",
-                          f"訊號日 {p['signal_date']}　詳見 paper/"))
+            tiles.append((f"紙上交易 {ver} 建議倉位", f"{pos:.2f}x" if pos > 0 else "空手",
+                          f"訊號日 {p['signal_date']}　詳見 {folder}/"))
         except (ValueError, KeyError):
             pass
     if k is not None:

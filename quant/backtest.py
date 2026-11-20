@@ -64,7 +64,7 @@ def stats(r: Result, start=None, end=None) -> dict:
         "卡瑪比": cagr / abs(mdd) if mdd < 0 else np.nan,
         "平均曝險": d["pos"].abs().mean(),
         "年換手": d["pos"].diff().abs().sum() / years,
-        "成本拖累/年": (d["cost"].sum() + d["funding"].sum()) / years,
+        "成本拖累/年": (d.get("cost", pd.Series(0.0)).sum() + d.get("funding", pd.Series(0.0)).sum()) / years,
     }
 
 
@@ -74,3 +74,13 @@ def yearly_returns(results: list[Result]) -> pd.DataFrame:
 
 def stats_table(results: list[Result], start=None, end=None) -> pd.DataFrame:
     return pd.DataFrame([stats(r, start, end) for r in results]).set_index("策略")
+
+
+def apply_band(pos: pd.Series, band: float) -> pd.Series:
+    """倉位變化小於 band 就維持原倉位；目標為 0 時一律出場。"""
+    out, cur = [], 0.0
+    for p in pos.fillna(0.0):
+        if p == 0.0 or abs(p - cur) >= band:
+            cur = p
+        out.append(cur)
+    return pd.Series(out, index=pos.index)
