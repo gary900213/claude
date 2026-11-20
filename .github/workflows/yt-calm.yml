@@ -1,0 +1,77 @@
+name: YT calm channel
+
+on:
+  schedule:
+    # 每天一次，UTC 11:23 = 台灣時間 19:23（晚上下班後是心情類影片的好時段）
+    - cron: "23 11 * * *"
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "指定主題 id（留空 = 自動挑下一個沒發過的）"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yt-calm
+  cancel-in-progress: false
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ffmpeg + 中文字型
+        run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg fonts-noto-cjk
+
+      - name: Install dependencies
+        run: pip install -r yt_calm/requirements.txt
+
+      - name: Make video
+        id: make
+        run: |
+          if [ -n "${{ inputs.topic }}" ]; then
+            python -m yt_calm.make_video --topic "${{ inputs.topic }}"
+          else
+            python -m yt_calm.make_video
+          fi
+
+      # 每次都保留成品 7 天，可以到 Actions 頁面下載檢查
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video
+          path: ${{ steps.make.outputs.dir }}
+          retention-days: 7
+
+      - name: Upload to YouTube
+        if: ${{ env.YT_REFRESH_TOKEN != '' }}
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_PRIVACY: ${{ vars.YT_PRIVACY || 'private' }}
+        run: python -m yt_calm.upload "${{ steps.make.outputs.dir }}"
+
+      - name: Record published topic
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add yt_calm/published.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "沒有上傳（尚未設定 YouTube secrets），只產生影片"
+            exit 0
+          fi
+          git commit -m "chore: yt_calm published $(date -u +'%Y-%m-%d')"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+    env:
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}

@@ -178,3 +178,9 @@ python -m quant.carry
 ```bash
 python -m pytest -q tests
 ```
+
+---
+
+## 其他專案
+
+- [`yt_calm/`](yt_calm/README.md)：心情調適 YouTube 頻道自動產片與上傳（全免費工具）
