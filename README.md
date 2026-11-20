@@ -185,7 +185,7 @@ python -m pytest -q tests
 
 可安裝到手機桌面的記帳網頁 App，資料只存在你的瀏覽器（IndexedDB），可離線使用。
 
-- 開啟 GitHub Pages 後，網址是 `<你的 Pages 網址>/ledger/`；手機用 Safari／Chrome 開啟後選「加入主畫面」。
+- 網址：https://gary900213.github.io/claude/ledger/ （需要先在 Settings → Pages 開啟，資料夾選 `/docs`）；手機用 Safari／Chrome 開啟後選「加入主畫面」。
 - 本機預覽：`python3 -m http.server -d docs/ledger 8000`
 - 測試：`node --test tests/ledger/*.test.mjs`
 - 架構說明：[docs/ledger/ARCHITECTURE.md](docs/ledger/ARCHITECTURE.md)
