@@ -1,7 +1,9 @@
 // Service Worker：快取 App 檔案，沒有網路也能開啟。
-// 策略：先用快取立刻顯示，同時在背景抓新版更新快取（下次開啟就是新版）。
+// 策略：有網路時一律先抓最新版（略過瀏覽器的 HTTP 快取，GitHub Pages 預設會快取 10 分鐘），
+// 抓到就更新快取；沒網路或 3 秒內沒回應才用快取。這樣一更新程式，下次打開就是新版。
 // 新增或改名檔案時，記得更新 ASSETS 並把 VERSION 加 1。
-const VERSION = 6;
+const VERSION = 7;
+const NETWORK_TIMEOUT = 3000;
 const CACHE = `ledger-v${VERSION}`;
 
 const ASSETS = [
@@ -64,18 +66,30 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-
-  e.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });
-      const network = fetch(req)
-        .then((res) => {
-          if (res.ok) cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => cached ?? Response.error());
-      e.waitUntil(network.catch(() => {}));
-      return cached || network;
-    }),
-  );
+  e.respondWith(networkFirst(e, req));
 });
+
+async function networkFirst(e, req) {
+  const cache = await caches.open(CACHE);
+  const navigate = req.mode === 'navigate';
+  // 換頁請求不能帶其他設定重建，只能用網址重新發出
+  const fresh = navigate ? fetch(req.url, { cache: 'no-cache' }) : fetch(req, { cache: 'no-cache' });
+  const network = fresh.then((res) => {
+    if (res.ok) {
+      // 換頁的網址可能帶 #，快取時統一存成首頁
+      e.waitUntil(cache.put(navigate ? './' : req, res.clone()));
+    }
+    return res;
+  });
+  e.waitUntil(network.catch(() => {}));
+
+  const timeout = new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT, null));
+  try {
+    const res = await Promise.race([network, timeout]);
+    if (res) return res;
+  } catch {
+    // 沒網路：往下用快取
+  }
+  const cached = navigate ? await cache.match('./') : await cache.match(req);
+  return cached ?? network.catch(() => Response.error());
+}

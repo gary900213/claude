@@ -13,6 +13,7 @@ import { getBudgets } from '../services/budget.js';
 import { generateDue, listRules } from '../services/recurring.js';
 import { getInbox } from '../services/inbox.js';
 import { formatAmount } from '../domain/format.js';
+import { APP_VERSION, PREVIEW } from '../config.js';
 import { countByCategory } from '../domain/stats.js';
 import { ValidationError } from '../domain/validate.js';
 import { confirmDialog, emptyState, esc, toast } from './components.js';
@@ -63,6 +64,11 @@ export async function render(el) {
         <label class="btn">匯入備份<input type="file" accept=".json,application/json" data-act="import" hidden></label>
       </div>
       <p class="hint">資料只存在這個瀏覽器裡，清除瀏覽器資料或換手機前，請先「匯出備份」。CSV 可以用 Excel 開啟。</p>
+    </section>
+
+    <section class="card about">
+      <div class="section-head"><h2>關於這個記帳本</h2></div>
+      <ul class="status-list" data-about></ul>
     </section>
 
     <dialog class="sheet" data-dialog>
@@ -239,4 +245,28 @@ export async function render(el) {
   });
 
   await refresh();
+  paintAbout(el.querySelector('[data-about]'));
+}
+
+/** 版本、開啟方式、資料會不會被保存：手機上出問題時先看這裡 */
+async function paintAbout(list) {
+  const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  let persisted = null;
+  try {
+    persisted = (await navigator.storage?.persisted?.()) ?? null;
+  } catch {
+    persisted = null;
+  }
+  const storage = PREVIEW
+    ? ['預覽版不保證保存，關掉後可能還原成範例資料', 'error']
+    : persisted === true
+      ? ['已設為持久保存', 'ok']
+      : standalone
+        ? ['主畫面 App 會保存資料', 'ok']
+        : ['在瀏覽器裡使用，久沒開可能被清除；建議加到主畫面', 'error'];
+  const row = (k, v, cls = 'muted') => `<li><span>${k}</span><span class="${cls}">${v}</span></li>`;
+  list.innerHTML =
+    row('版本', `${APP_VERSION}（${PREVIEW ? '預覽版' : '正式版'}）`) +
+    row('開啟方式', standalone ? '主畫面 App' : '瀏覽器') +
+    row('資料保存', storage[0], storage[1]);
 }

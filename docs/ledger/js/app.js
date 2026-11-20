@@ -13,7 +13,7 @@ function mountPreviewBar(view) {
   wrap.className = 'preview-wrap';
   wrap.innerHTML = `
     <div class="preview-bar" role="note">
-      <span>預覽版：目前是範例資料，只存在你的瀏覽器裡，可以隨意新增、修改、刪除試試看。</span>
+      <span>預覽版只是試用：<b>資料不一定會保存</b>，關掉後可能還原成範例。要每天記帳，請用正式網址並加到主畫面。</span>
       <span class="btn-row">
         <button class="btn small" type="button" data-preview="clear">清空資料</button>
         <button class="btn small" type="button" data-preview="sample">放回範例資料</button>
