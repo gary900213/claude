@@ -2,7 +2,7 @@
 // 策略：有網路時一律先抓最新版（略過瀏覽器的 HTTP 快取，GitHub Pages 預設會快取 10 分鐘），
 // 抓到就更新快取；沒網路或 3 秒內沒回應才用快取。這樣一更新程式，下次打開就是新版。
 // 新增或改名檔案時，記得更新 ASSETS 並把 VERSION 加 1。
-const VERSION = 7;
+const VERSION = 8;
 const NETWORK_TIMEOUT = 3000;
 const CACHE = `ledger-v${VERSION}`;
 
@@ -43,6 +43,7 @@ const ASSETS = [
   './js/views/components.js',
   './js/views/edit.js',
   './js/views/home.js',
+  './js/views/install.js',
   './js/views/list.js',
   './js/views/recurring.js',
   './js/views/settings.js',

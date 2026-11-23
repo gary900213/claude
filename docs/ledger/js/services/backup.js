@@ -59,3 +59,18 @@ export async function importJSON(text) {
 export async function getLastExportAt() {
   return (await db.get('meta', 'lastExportAt'))?.value ?? null;
 }
+
+const BACKUP_EVERY_DAYS = 30;
+const MIN_RECORDS = 20;
+
+/** 該提醒備份了嗎：紀錄夠多，而且超過 30 天沒備份（按「稍後」會延後 7 天） */
+export async function backupDue(count) {
+  if (PREVIEW || count < MIN_RECORDS) return null;
+  const [last, snooze] = await Promise.all([getLastExportAt(), db.get('meta', 'backupSnoozeUntil')]);
+  const now = Date.now();
+  if ((snooze?.value ?? 0) > now) return null;
+  if (last && now - last < BACKUP_EVERY_DAYS * 86400e3) return null;
+  return { days: last ? Math.floor((now - last) / 86400e3) : null };
+}
+
+export const snoozeBackup = () => db.put('meta', { key: 'backupSnoozeUntil', value: Date.now() + 7 * 86400e3 });
