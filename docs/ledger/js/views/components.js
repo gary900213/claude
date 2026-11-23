@@ -41,13 +41,13 @@ export function txItem(tx, cat) {
 }
 
 /** 依日期分組的紀錄列表；showTotals 時每天顯示小計 */
-export function groupedList(groups, cats, { showTotals = false } = {}) {
+export function groupedList(groups, cats, { showTotals = false, showYear = false } = {}) {
   return groups
     .map(
       (g) => `
       <section class="day">
         <h3 class="day-head">
-          <span>${formatDay(g.date)}</span>
+          <span>${showYear ? `${g.date.slice(0, 4)}/` : ''}${formatDay(g.date)}</span>
           ${showTotals ? `<span class="day-total">${g.income ? `<span class="income">+${formatAmount(g.income)}</span>` : ''}${g.expense ? `<span class="expense">-${formatAmount(g.expense)}</span>` : ''}</span>` : ''}
         </h3>
         <ul class="tx-list">${g.items.map((t) => txItem(t, cats.get(t.categoryId))).join('')}</ul>

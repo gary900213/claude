@@ -4,6 +4,7 @@ import { generateDue } from './services/recurring.js';
 import { syncAll } from './services/inbox.js';
 import { refresh, startRouter } from './router.js';
 import { confirmDialog, esc, toast } from './views/components.js';
+import './views/install.js'; // 盡早開始接收「可以安裝」的通知
 import { PREVIEW } from './config.js';
 import { clearAllData, loadSample, loadSampleOnce } from './services/preview.js';
 

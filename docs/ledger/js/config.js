@@ -6,4 +6,4 @@
 export const PREVIEW = typeof __LEDGER_PREVIEW__ !== 'undefined' && __LEDGER_PREVIEW__ === true;
 
 /** 版本：每次更新程式時改成當天日期，設定頁會顯示，方便確認手機上跑的是哪一版 */
-export const APP_VERSION = '2026.11.20';
+export const APP_VERSION = '2026.11.23';

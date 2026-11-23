@@ -41,3 +41,6 @@ export const listByMonth = (month) => listMonths(month, month);
 export async function listRecent(limit = 20) {
   return sortTransactions(await db.getAll('transactions')).slice(0, limit);
 }
+
+export const countTransactions = () =>
+  db.run('transactions', 'readonly', (t) => t.objectStore('transactions').count());

@@ -148,6 +148,10 @@ h1, h2, h3 { margin: 0; }
 
 /* ---------- 篩選 ---------- */
 .filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 8px; }
+.filters .all-months { grid-column: 1 / -1; margin-top: 0; font-size: .9rem; }
+.filters .all-months input { width: 20px; height: 20px; min-height: 0; padding: 0; flex: none; }
+/* 搜尋全部月份時，切換月份沒有意義 */
+.page.all-months-on .month-switcher [data-month-nav] { visibility: hidden; }
 .filters select, .filters input, .field input {
   width: 100%; min-height: 44px; padding: 8px 12px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--card);
@@ -400,6 +404,14 @@ h1, h2, h3 { margin: 0; }
 .pending-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
 .pending-row + .pending-row { border-top: 1px solid var(--line); }
 .hint.error { color: var(--danger); }
+
+/* ---------- 首頁提示卡片 ---------- */
+.install-card p, .notice-card p { margin: 0; font-size: .9rem; }
+.notice-card { border: 1px solid var(--warn); }
+.inline-icon { width: 1.1em; height: 1.1em; vertical-align: -.2em; fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.first-steps { font-size: .92rem; }
+.first-steps p { margin: 4px 0; }
+.first-steps ol { margin: 6px 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; }
 
 /* ---------- 底部選單與浮動按鈕 ---------- */
 .tabbar {
