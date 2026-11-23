@@ -133,6 +133,36 @@ def simulate(t: pd.DataFrame, quant: pd.DataFrame, tranche_q: list[float], lock:
     return {"毛年化": gross, "淨年化（扣 15%）": gross * (1 - FEE), "資金使用率": lent_seconds / total}
 
 
+def term_and_baseline(t: pd.DataFrame) -> list[str]:
+    """更合理的被動基準（掛低一點確保借得出去）與「直接借長天期」的比較。"""
+    rows = []
+    q2 = rolling_quantiles(t, [0.3])
+    r = simulate(t, q2, [0.3] * TRANCHES, False, False)
+    rows.append({"做法（不用機器人）": "2 天期，掛 30% 分位（幾乎都借得出去）",
+                 "淨年化": f"{r['淨年化（扣 15%）']:.2%}", "資金使用率": f"{r['資金使用率']:.1%}"})
+    long = t[t["period"] >= 30]
+    ql = rolling_quantiles(long, [0.5])
+    global LOCK_ANN
+    old, LOCK_ANN = LOCK_ANN, 0.0
+    try:
+        r = simulate(long, ql, [0.5] * TRANCHES, True, False)
+    finally:
+        LOCK_ANN = old
+    rows.append({"做法（不用機器人）": "30 天期，掛 30 天以上成交的中位數",
+                 "淨年化": f"{r['淨年化（扣 15%）']:.2%}", "資金使用率": f"{r['資金使用率']:.1%}"})
+    per = []
+    for p in (2, 7, 30, 120):
+        s = t[t["period"] == p]
+        if len(s):
+            per.append({"天期": f"{p} 天", "量加權淨年化": f"{(s['rate'] * s['amount'].abs()).sum() / s['amount'].abs().sum() * 365 * (1 - FEE):.2%}",
+                        "佔成交額": f"{s['amount'].abs().sum() / t['amount'].abs().sum():.0%}"})
+    return ["## 不用機器人的兩個簡單做法", "",
+            "上表的「被動」掛中位數、而且要有人以更高利率成交才算借出，使用率只有約 76%，基準偏低。"
+            "實際用 FRR 或掛低一點，幾乎都借得出去：", "",
+            pd.DataFrame(rows).to_markdown(index=False), "",
+            "各天期的成交利率（長天期明顯較高）：", "", pd.DataFrame(per).to_markdown(index=False), ""]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=60)
@@ -183,6 +213,7 @@ def main(argv=None) -> int:
         "",
         show.to_markdown(index=False),
         "",
+        *term_and_baseline(t),
         "## 扣掉 Willy 訂閱費後",
         "",
         "Willy 年費取自 2026-10 的比較文章（入門 86U／1 萬、 中階 196U／10 萬、高階 396U／20 萬），以官網為準。",
