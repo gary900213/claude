@@ -28,6 +28,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parent
 TOPICS_DIR = ROOT / "topics"
 PUBLISHED = ROOT / "published.json"
+MASCOT_DIR = ROOT / "mascot" / "png"
+MASCOT_H = 300  # 影片中吉祥物高度（像素）
 
 SR = 44100
 W, H = 1920, 1080
@@ -267,10 +269,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     path.write_text(head + "\n".join(ev) + "\n", "utf-8")
 
 
-def make_thumbnail(bg: Image.Image, text: str, font_path: str, out: Path) -> None:
-    img = bg.resize((1280, 720), Image.LANCZOS).convert("RGB")
+def load_mascot(name: str, height: int) -> Image.Image:
+    im = Image.open(MASCOT_DIR / f"{name}.png").convert("RGBA")
+    return im.resize((round(im.width * height / im.height), height), Image.LANCZOS)
+
+
+def make_thumbnail(bg: Image.Image, text: str, font_path: str, out: Path, pose: str) -> None:
+    img = bg.resize((1280, 720), Image.LANCZOS).convert("RGBA")
+    m = load_mascot(pose, 430)
+    img.alpha_composite(m, (1280 - m.width - 30, 720 - m.height - 40))
+    cx = (1280 - m.width) / 2 + 40  # 文字放在吉祥物左邊的空間置中
     lines = text.split("\n")
-    size = 150 if max(len(l) for l in lines) <= 4 else 120
+    size = 140 if max(len(l) for l in lines) <= 4 else 110
     font = ImageFont.truetype(font_path, size)
     layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
@@ -278,12 +288,12 @@ def make_thumbnail(bg: Image.Image, text: str, font_path: str, out: Path) -> Non
     y = (720 - total_h) / 2
     for l in lines:
         tw = d.textlength(l, font=font)
-        x = (1280 - tw) / 2
+        x = cx - tw / 2
         d.text((x + 5, y + 6), l, font=font, fill=(0, 0, 0, 110))
         d.text((x, y), l, font=font, fill=(255, 255, 255, 255))
         y += size * 1.2
     shadow = layer.filter(ImageFilter.GaussianBlur(3))
-    img = Image.alpha_composite(img.convert("RGBA"), shadow)
+    img = Image.alpha_composite(img, shadow)
     img = Image.alpha_composite(img, layer)
     img.convert("RGB").save(out, quality=92)
 
@@ -294,6 +304,7 @@ def make(topic: dict, out_root: Path) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     seed = sum(map(ord, topic["id"]))
     font_path, family = find_font()
+    pose = topic.get("mascot", "calm")
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         print(f"[1/4] 產生旁白（{VOICE}）…")
@@ -304,19 +315,30 @@ def make(topic: dict, out_root: Path) -> Path:
         print("[3/4] 繪製背景與縮圖…")
         bg = make_background(topic["palette"], (int(W * 1.12), int(H * 1.12)), seed)
         bg.save(work / "bg.png")
-        make_thumbnail(bg, topic.get("thumbnail_text", topic["title"]), font_path, out / "thumbnail.jpg")
+        make_thumbnail(bg, topic.get("thumbnail_text", topic["title"]), font_path, out / "thumbnail.jpg", pose)
+        load_mascot(pose, MASCOT_H).save(work / "m.png")
+        load_mascot(f"{pose}_blink", MASCOT_H).save(work / "mb.png")
         write_ass(work / "subs.ass", topic, cues, total, family)
         print("[4/4] ffmpeg 輸出影片…")
         mx, my = int(W * 0.06), int(H * 0.06)
-        vf = (
-            f"crop={W}:{H}:x='{mx}+{mx}*sin(2*PI*t/70)':y='{my}+{my}*cos(2*PI*t/53)',"
-            f"ass={work / 'subs.ass'}:fontsdir={Path(font_path).parent},"
-            f"fade=in:st=0:d=1.5,fade=out:st={total - 2.5:.2f}:d=2.5,format=yuv420p"
+        # 吉祥物在右下角：慢慢「呼吸」上下浮動，每隔幾秒眨一次眼
+        m_w = load_mascot(pose, MASCOT_H).width
+        mxp, myp = W - m_w - 50, H - MASCOT_H - 30
+        bob = f"{myp}+7*sin(2*PI*t/4.5)"
+        fc = (
+            f"[0:v]crop={W}:{H}:x='{mx}+{mx}*sin(2*PI*t/70)':y='{my}+{my}*cos(2*PI*t/53)'[bg];"
+            f"[bg][1:v]overlay=x={mxp}:y='{bob}'[a];"
+            f"[a][2:v]overlay=x={mxp}:y='{bob}':enable='lt(mod(t,5.3),0.18)'[b];"
+            f"[b]ass={work / 'subs.ass'}:fontsdir={Path(font_path).parent},"
+            f"fade=in:st=0:d=1.5,fade=out:st={total - 2.5:.2f}:d=2.5,format=yuv420p[v]"
         )
         run([
             "ffmpeg", "-y", "-loop", "1", "-framerate", str(FPS), "-i", str(work / "bg.png"),
-            "-i", str(work / "mix.wav"), "-vf", vf, "-t", f"{total:.2f}",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-tune", "stillimage",
+            "-loop", "1", "-framerate", str(FPS), "-i", str(work / "m.png"),
+            "-loop", "1", "-framerate", str(FPS), "-i", str(work / "mb.png"),
+            "-i", str(work / "mix.wav"), "-filter_complex", fc, "-map", "[v]", "-map", "3:a",
+            "-t", f"{total:.2f}",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "22",
             "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out / "video.mp4"),
         ])
     desc = topic["description"] + (

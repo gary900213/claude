@@ -51,6 +51,15 @@ python -m yt_calm.make_video --topic 001_tired_day
 >
 > 自訂縮圖需要頻道先完成[電話驗證](https://www.youtube.com/verify)，否則只會用 YouTube 自動截圖，影片照常上傳。
 
+## 頻道吉祥物「暖糰」
+
+一顆頭上長著小嫩芽的麻糬精靈，是原創角色，用程式畫成向量圖（SVG），版權完全屬於你。
+
+- 影片右下角會出現暖糰，跟著呼吸慢慢上下浮動，每隔幾秒眨一次眼；縮圖右邊也會放。
+- 每支腳本用 `"mascot"` 欄位選動作：`calm`（平靜）、`hug`（抱愛心）、`wave`（揮手打招呼）、`sleep`（睡覺）。
+- 頻道頭像與橫幅在 `mascot/branding/`，可以直接上傳到 YouTube 工作室 →「自訂」→「品牌」。
+- 想改顏色或新增動作：修改 `mascot/draw.py`，再執行 `python -m yt_calm.mascot.draw` 重新產生 PNG（需要 Playwright）。
+
 ## 新增題目
 
 在 `topics/` 新增一個 JSON 檔，檔名開頭的數字決定發布順序：
@@ -61,6 +70,7 @@ python -m yt_calm.make_video --topic 001_tired_day
   "title": "主標題｜副標題",
   "thumbnail_text": "縮圖\n兩行字",
   "palette": ["#深色", "#淺色"],
+  "mascot": "hug",
   "tags": ["心情調適", "..."],
   "description": "影片說明",
   "lines": ["一句一行，會變成一則字幕", "", "空字串代表停頓 5 秒"]
