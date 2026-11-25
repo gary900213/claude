@@ -215,6 +215,8 @@ h1, h2, h3 { margin: 0; }
 .cat[aria-checked="true"] { border-color: var(--accent); }
 .cat[aria-checked="true"] .cat-icon { background: var(--accent); }
 .cat-name { font-size: .8rem; white-space: nowrap; }
+.cat-add { border-style: dashed; border-color: var(--line); box-shadow: none; background: transparent; }
+.cat-add .cat-icon { background: var(--line); color: var(--muted); font-weight: 700; }
 .cat .cat-icon { width: 32px; height: 32px; font-size: 1.1rem; border-radius: 10px; }
 
 .field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
