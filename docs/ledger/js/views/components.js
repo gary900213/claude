@@ -82,17 +82,75 @@ export function categoryColors(cats) {
 }
 
 /** 類別選擇格（記一筆、固定收支共用） */
-export function categoryGrid(cats, selectedId) {
-  if (!cats.length) return '<p class="muted">沒有可用的類別，請到「設定」新增</p>';
-  return cats
-    .map(
-      (c) => `
+export function categoryGrid(cats, selectedId, { addButton = false } = {}) {
+  const add = addButton
+    ? `<button type="button" class="cat cat-add" data-add-cat>
+        <span class="cat-icon" aria-hidden="true">＋</span>
+        <span class="cat-name">新增</span>
+      </button>`
+    : '';
+  if (!cats.length && !add) return '<p class="muted">沒有可用的類別，請到「設定」新增</p>';
+  return (
+    cats
+      .map(
+        (c) => `
       <button type="button" class="cat" role="radio" data-cat="${esc(c.id)}" aria-checked="${c.id === selectedId}">
         <span class="cat-icon" aria-hidden="true">${esc(c.icon)}</span>
         <span class="cat-name">${esc(c.name)}</span>
       </button>`,
-    )
-    .join('');
+      )
+      .join('') + add
+  );
+}
+
+export const ICON_CHOICES = ['🍜', '☕', '🚗', '⛽', '✈️', '🏍️', '🏥', '👕', '📱', '🎮', '🐶', '👶', '💄', '📚', '🎬', '🛒', '🏋️', '💳', '🧾', '🎂'];
+
+/**
+ * 新增類別的小視窗。save(input) 負責實際儲存，失敗時丟出帶 errors 的錯誤（例如 ValidationError）。
+ * 回傳 Promise：存好的類別，或取消時為 null。
+ */
+export function categoryDialog({ title, save }) {
+  return new Promise((resolve) => {
+    const d = document.createElement('dialog');
+    d.className = 'sheet';
+    d.innerHTML = `
+      <form method="dialog" novalidate>
+        <h2>${esc(title)}</h2>
+        <label class="field"><span>名稱</span><input name="name" maxlength="8" autocomplete="off" required></label>
+        <p class="field-error" data-err="name"></p>
+        <label class="field"><span>圖示</span><input name="icon" class="icon-input" autocomplete="off" required></label>
+        <div class="icon-choices">${ICON_CHOICES.map((i) => `<button type="button" data-icon="${i}">${i}</button>`).join('')}</div>
+        <p class="field-error" data-err="icon"></p>
+        <div class="btn-row">
+          <button class="btn" value="cancel" formnovalidate>取消</button>
+          <button class="btn primary" value="save">新增</button>
+        </div>
+      </form>`;
+    document.body.append(d);
+    const form = d.querySelector('form');
+    let saved = null;
+    d.addEventListener('click', (e) => {
+      const icon = e.target.closest('[data-icon]');
+      if (icon) form.elements.icon.value = icon.dataset.icon;
+    });
+    form.addEventListener('submit', async (e) => {
+      if (e.submitter?.value !== 'save') return;
+      e.preventDefault();
+      try {
+        saved = await save({ name: form.elements.name.value, icon: form.elements.icon.value });
+        d.close();
+      } catch (err) {
+        const errors = err.errors ?? { name: err.message };
+        for (const p of d.querySelectorAll('[data-err]')) p.textContent = errors[p.dataset.err] ?? '';
+      }
+    });
+    d.addEventListener('close', () => {
+      resolve(saved);
+      d.remove();
+    });
+    d.showModal();
+    form.elements.name.focus();
+  });
 }
 
 export function progressBar(ratio, label = '') {

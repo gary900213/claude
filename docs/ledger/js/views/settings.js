@@ -16,9 +16,8 @@ import { formatAmount } from '../domain/format.js';
 import { APP_VERSION, PREVIEW } from '../config.js';
 import { countByCategory } from '../domain/stats.js';
 import { ValidationError } from '../domain/validate.js';
-import { confirmDialog, emptyState, esc, toast } from './components.js';
+import { confirmDialog, emptyState, esc, ICON_CHOICES, toast } from './components.js';
 
-const ICON_CHOICES = ['🍜', '☕', '🚗', '⛽', '✈️', '🏍️', '🏥', '👕', '📱', '🎮', '🐶', '👶', '💄', '📚', '🎬', '🛒', '🏋️', '💳', '🧾', '🎂'];
 
 let tab = 'expense';
 

@@ -1,12 +1,12 @@
 // 新增／編輯一筆紀錄。金額用畫面上的記帳鍵盤輸入，可以直接算加減。
 import { addTransaction, deleteTransaction, getTransaction, updateTransaction } from '../services/ledger.js';
-import { listCategories } from '../services/categories.js';
+import { addCategory, listCategories } from '../services/categories.js';
 import { formatAmount, todayStr } from '../domain/format.js';
 import { evalAmount, hasOperator, pressKey } from '../domain/amount.js';
 import { MAX_NOTE, ValidationError } from '../domain/validate.js';
 import { goBack } from '../router.js';
 import { learnCategory, removePending } from '../services/inbox.js';
-import { categoryGrid, confirmDialog, emptyState, esc, subHeader, toast } from './components.js';
+import { categoryDialog, categoryGrid, confirmDialog, emptyState, esc, subHeader, toast } from './components.js';
 
 export const fullscreen = true;
 
@@ -41,7 +41,7 @@ export async function render(el, ctx) {
 
   const from = tx ?? (isEdit ? null : prefill);
   prefill = null;
-  const allCats = await listCategories({ includeHidden: true });
+  let allCats = await listCategories({ includeHidden: true });
   const state = {
     type: from?.type ?? (ctx.param === 'income' ? 'income' : 'expense'),
     categoryId: from?.categoryId ?? null,
@@ -114,7 +114,7 @@ export async function render(el, ctx) {
     // 隱藏的類別不顯示，但正在編輯的紀錄用的類別要留著
     const cats = allCats.filter((c) => c.type === state.type && (!c.hidden || c.id === tx?.categoryId));
     if (!cats.some((c) => c.id === state.categoryId)) state.categoryId = cats[0]?.id ?? null;
-    grid.innerHTML = categoryGrid(cats, state.categoryId);
+    grid.innerHTML = categoryGrid(cats, state.categoryId, { addButton: true });
   }
 
   function paintAmount() {
@@ -144,6 +144,18 @@ export async function render(el, ctx) {
       state.type = typeBtn.dataset.type;
       state.categoryId = lastCategory[state.type];
       paint();
+    } else if (e.target.closest('[data-add-cat]')) {
+      // 記帳時就能新增類別，存好後自動選上
+      const cat = await categoryDialog({
+        title: `新增${state.type === 'expense' ? '支出' : '收入'}類別`,
+        save: (input) => addCategory({ ...input, type: state.type }),
+      });
+      if (!cat) return;
+      allCats = [...allCats, cat];
+      state.categoryId = cat.id;
+      paint();
+      showErrors();
+      toast(`已新增「${cat.name}」`);
     } else if (catBtn) {
       state.categoryId = catBtn.dataset.cat;
       paint();
